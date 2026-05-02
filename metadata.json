@@ -1,0 +1,12 @@
+{
+  "name": "Recruit IQ",
+  "description": "Enterprise-grade recruitment intelligence platform for agency and corporate recruiters. Features AI-powered sourcing, LinkedIn Boolean intelligence, and semantic talent matching.",
+  "requestFramePermissions": [
+    "clipboard-write"
+  ],
+  "majorCapabilities": [
+     "AI Sourcing Optimization",
+     "Boolean Search Logic Generator",
+     "Semantic Talent Matching"
+  ]
+}

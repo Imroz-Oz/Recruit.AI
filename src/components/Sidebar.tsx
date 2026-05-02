@@ -17,6 +17,9 @@ import {
 import { cn } from '@/src/lib/utils';
 import { Page, AppMode } from '@/src/types';
 
+import { auth } from '@/src/lib/firebase';
+import { signOut } from 'firebase/auth';
+
 interface SidebarProps {
   currentPage: Page;
   setCurrentPage: (page: Page) => void;
@@ -27,6 +30,14 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPage, setCurrentPage, isLinkedInConnected, onConnectLinkedIn, appMode, onSwitchMode }: SidebarProps) {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   const recruiterItems = [
     { id: 'dashboard' as Page, label: 'Launcher', icon: LayoutDashboard },
     { id: 'sourcing' as Page, label: 'Search Builder', icon: Search },
@@ -145,7 +156,10 @@ export default function Sidebar({ currentPage, setCurrentPage, isLinkedInConnect
           <span className="text-xs font-medium">Professional Profile</span>
         </div>
         
-        <div className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-coral transition-colors cursor-pointer group">
+        <div 
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-coral transition-colors cursor-pointer group"
+        >
           <LogOut className="w-5 h-5 text-white/40 group-hover:text-coral/80" />
           <span className="text-xs font-medium">Finish Session</span>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -12,9 +12,12 @@ import {
   ExternalLink,
   Globe,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, doc, setDoc, deleteDoc, getDocs, query } from 'firebase/firestore';
 
 interface Job {
   id: string;
@@ -98,6 +101,49 @@ export default function JobFeedPage() {
   const [industry, setIndustry] = useState('All Sectors');
   const [salaryRange, setSalaryRange] = useState('Any');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const fetchSavedJobs = async () => {
+      if (!auth.currentUser) return;
+      setIsSyncing(true);
+      try {
+        const q = query(collection(db, 'users', auth.currentUser.uid, 'savedJobs'));
+        const querySnapshot = await getDocs(q);
+        const ids = new Set(querySnapshot.docs.map(doc => doc.id));
+        setSavedJobIds(ids);
+      } catch (error) {
+        console.error('Error fetching saved jobs:', error);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    fetchSavedJobs();
+  }, []);
+
+  const toggleSaveJob = async (job: Job) => {
+    if (!auth.currentUser) return;
+    
+    const isSaved = savedJobIds.has(job.id);
+    const newSavedIds = new Set(savedJobIds);
+    
+    try {
+      if (isSaved) {
+        newSavedIds.delete(job.id);
+        await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'savedJobs', job.id));
+      } else {
+        newSavedIds.add(job.id);
+        await setDoc(doc(db, 'users', auth.currentUser.uid, 'savedJobs', job.id), {
+          ...job,
+          savedAt: new Date().toISOString()
+        });
+      }
+      setSavedJobIds(newSavedIds);
+    } catch (error) {
+      console.error('Error toggling job save:', error);
+    }
+  };
 
   const filteredJobs = JOBS.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -288,8 +334,16 @@ export default function JobFeedPage() {
                   <button className="flex items-center gap-2 px-6 py-3 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all">
                     Apply Now <ExternalLink className="w-3.5 h-3.5" />
                   </button>
-                  <button className="p-3 bg-warm-gray/10 text-midnight/30 rounded-xl hover:text-amber-500 hover:bg-amber-50 transition-all">
-                    <Star className="w-5 h-5" />
+                  <button 
+                    onClick={() => toggleSaveJob(job)}
+                    className={cn(
+                      "p-3 rounded-xl transition-all",
+                      savedJobIds.has(job.id) 
+                        ? "bg-amber-50 text-amber-500" 
+                        : "bg-warm-gray/10 text-midnight/30 hover:text-amber-500 hover:bg-amber-50"
+                    )}
+                  >
+                    <Star className={cn("w-5 h-5", savedJobIds.has(job.id) && "fill-current")} />
                   </button>
                 </div>
               </div>

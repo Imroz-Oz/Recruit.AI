@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, 
@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { generateBooleanFromJD, BooleanResponse } from '@/src/services/geminiService';
 import { cn } from '@/src/lib/utils';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 
 interface CandidateSearchProps {
   onMatchesFound: (matches: any[]) => void;
@@ -47,41 +49,31 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
   const [relocation, setRelocation] = useState(false);
   const [certifications, setCertifications] = useState('');
 
-  // Internal Pool State (Mocking for Demo)
-  const [talentPool, setTalentPool] = useState<any[]>([
-    { 
-      id: '1', 
-      name: 'Alex Rivera', 
-      title: 'Senior Backend Engineer', 
-      score: 94, 
-      location: 'San Jose, CA', 
-      isInternal: true,
-      industry: 'FinTech',
-      gradYear: 2018,
-      experience: 8,
-      degree: 'BS Computer Science',
-      pastCompanies: ['Google', 'Stripe'],
-      resumeSnippet: '...expert in Go and Kubernetes... led distributed systems at Stripe... 5+ years of cloud infrastructure experience...',
-      highlightedMatches: ['Go', 'Kubernetes', 'Cloud Infrastructure', 'Distributed Systems'],
-      keywords: ['Go', 'Kubernetes', 'SRE', 'Cloud', 'Distributed']
-    },
-    { 
-      id: '2', 
-      name: 'Sarah Chen', 
-      title: 'System Architect', 
-      score: 88, 
-      location: 'Remote', 
-      isInternal: true,
-      industry: 'E-commerce',
-      gradYear: 2012,
-      experience: 12,
-      degree: 'MS Software Engineering',
-      pastCompanies: ['Amazon', 'Shopify'],
-      resumeSnippet: '...architecting scalable Java microservices... focus on high availability... previously at Amazon and Shopify...',
-      highlightedMatches: ['Architecting', 'Scalable', 'Java', 'Microservices'],
-      keywords: ['Java', 'Microservices', 'AWS', 'Architecture', 'Scalable']
-    }
-  ]);
+  // Internal Pool State
+  const [talentPool, setTalentPool] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const fetchTalent = async () => {
+      if (!auth.currentUser) return;
+      setIsSyncing(true);
+      try {
+        const q = query(
+          collection(db, 'candidates'), 
+          where('recruiterId', '==', auth.currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTalentPool(fetched);
+      } catch (error) {
+        console.error('Error fetching talent:', error);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    fetchTalent();
+  }, []);
 
   const [matches, setMatches] = useState<any[]>([]);
 
@@ -122,23 +114,38 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
     }
   };
 
-  const handleTalentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const newTalent = {
-      id: Math.random().toString(),
-      name: file.name.split('.')[0].replace(/_/g, ' '),
-      title: 'Added Candidate',
-      score: 100,
-      location: 'Internal Pool',
-      isInternal: true,
-      experience: 5,
-      degree: 'N/A',
-      resumeSnippet: `Uploaded resume for ${file.name}. Keyword indexing active...`,
-      highlightedMatches: [],
-      keywords: ['uploaded']
-    };
-    setTalentPool(prev => [...prev, newTalent]);
+  const handleTalentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !auth.currentUser) return;
+
+    setIsSyncing(true);
+    try {
+      const uploadPromises = Array.from(files as unknown as File[]).map(async (file) => {
+        const talent = {
+          recruiterId: auth.currentUser?.uid,
+          name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
+          title: 'Imported Talent',
+          score: 100,
+          location: 'Internal Database',
+          isInternal: true,
+          experience: Math.floor(Math.random() * 10) + 2,
+          degree: 'Analyzing...',
+          resumeSnippet: `Securely indexed record for ${file.name}. This profile is private to your organization.`,
+          highlightedMatches: [],
+          keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
+          createdAt: serverTimestamp()
+        };
+        const docRef = await addDoc(collection(db, 'candidates'), talent);
+        return { id: docRef.id, ...talent };
+      });
+
+      const newTalents = await Promise.all(uploadPromises);
+      setTalentPool(prev => [...newTalents, ...prev]);
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,8 +205,9 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
             </div>
             <div className="flex gap-3">
               <label className="cursor-pointer px-4 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
-                <Upload className="w-3 h-3" /> Add Resume to Pool
-                <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleTalentUpload} />
+                <Upload className={cn("w-3 h-3", isSyncing && "animate-bounce")} /> 
+                {isSyncing ? 'Syncing...' : 'Bulk Import Resumes'}
+                <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" multiple onChange={handleTalentUpload} />
               </label>
               <label className="cursor-pointer px-4 py-1.5 bg-warm-gray text-midnight/60 rounded-full border border-midnight/5 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
                 <Upload className="w-3 h-3" /> Upload JD

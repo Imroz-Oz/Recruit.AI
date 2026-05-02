@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, UserPlus, Sparkles, ShieldCheck, Mail, Lock } from 'lucide-react';
+import { LogIn, Sparkles, ShieldCheck } from 'lucide-react';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth } from '@/src/lib/firebase';
 
 interface AuthPageProps {
   onLogin: (email: string) => void;
 }
 
 export default function AuthPage({ onLogin }: AuthPageProps) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && password) {
-      onLogin(email);
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      if (result.user?.email) {
+        onLogin(result.user.email);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to sign in with Google');
     }
   };
 
@@ -41,57 +48,25 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
-              <input
-                type="email"
-                placeholder="Work Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-warm-gray border border-transparent rounded-2xl focus:border-indigo-electric focus:bg-white outline-none transition-all text-sm font-bold placeholder:text-midnight/20"
-                required
-              />
+        <div className="space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold text-center">
+              {error}
             </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-warm-gray border border-transparent rounded-2xl focus:border-indigo-electric focus:bg-white outline-none transition-all text-sm font-bold placeholder:text-midnight/20"
-                required
-              />
-            </div>
-          </div>
+          )}
 
           <button
-            type="submit"
-            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-opacity-90 transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-2"
+            onClick={handleGoogleLogin}
+            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-opacity-90 transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-3"
           >
-            {isLogin ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-            {isLogin ? 'Sign In Intelligence' : 'Join the Network'}
+            <img src="https://www.google.com/favicon.ico" className="w-4 h-4 bg-white rounded-full p-0.5" alt="Google" />
+            Continue with Google
           </button>
-        </form>
 
-        <div className="mt-8 flex items-center gap-4 py-2 opacity-50 justify-center">
-          <div className="h-px flex-1 bg-midnight/10" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-midnight/40">Or connect with</span>
-          <div className="h-px flex-1 bg-midnight/10" />
+          <p className="text-[10px] text-midnight/30 text-center font-medium leading-relaxed">
+            By connecting, you agree to our Enterprise Data Agreement and AI Ethics Protocol.
+          </p>
         </div>
-
-        <button className="mt-4 w-full py-3 bg-[#0077B5] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2">
-          LinkedIn Fast Connect
-        </button>
-
-        <button 
-          onClick={() => setIsLogin(!isLogin)}
-          className="mt-8 text-[11px] font-bold text-midnight/40 hover:text-midnight transition-colors uppercase tracking-widest text-center"
-        >
-          {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-        </button>
       </motion.div>
 
       <div className="mt-10 flex gap-8 items-center text-midnight/20">

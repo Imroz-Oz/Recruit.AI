@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
 import IntelligenceHubPage from './pages/IntelligenceHubPage';
@@ -22,30 +22,82 @@ import InterviewPrepPage from './pages/InterviewPrepPage';
 import { Page, User, AppMode, SearchMode } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { Bot } from 'lucide-react';
+import { Bot, Loader2 } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isLinkedInConnected, setIsLinkedInConnected] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
 
-  const handleLogin = (email: string) => {
-    const isCompany = email.includes('@agency.com') || email.includes('@corp.com') || email.includes('.ai');
-    setUser({
-      id: '1',
-      email,
-      name: email.split('@')[0],
-      isLoggedIn: true,
-      role: isCompany ? 'corp' : 'candidate',
-      isCompanyUser: isCompany
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch user metadata from Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        
+        let userData: User;
+        if (userDoc.exists()) {
+          const profile = userDoc.data();
+          const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
+          userData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            isLoggedIn: true,
+            role: profile.role || (isCompany ? 'corp' : 'candidate'),
+            isCompanyUser: isCompany || profile.role === 'recruiter',
+            selectedMode: profile.selectedMode
+          };
+        } else {
+          // Initialize user in Firestore
+          const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
+          const role = isCompany ? 'recruiter' : 'candidate';
+          
+          userData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            isLoggedIn: true,
+            role: isCompany ? 'corp' : 'candidate', // Keep 'corp' for UI compatibility but 'recruiter' in DB
+            isCompanyUser: isCompany
+          };
+
+          await setDoc(doc(db, 'users', firebaseUser.uid), {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            role,
+            createdAt: new Date().toISOString()
+          });
+        }
+        setUser(userData);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
     });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = (email: string) => {
+    // This is now handled by onAuthStateChanged after signInWithPopup in AuthPage
   };
 
-  const handleSelectAppMode = (mode: AppMode) => {
+  const handleSelectAppMode = async (mode: AppMode) => {
     if (user) {
-      setUser({ ...user, selectedMode: mode });
+      const updatedUser = { ...user, selectedMode: mode };
+      setUser(updatedUser);
       setCurrentPage('dashboard');
+      
+      // Persist selection
+      if (auth.currentUser) {
+        await setDoc(doc(db, 'users', auth.currentUser.uid), { selectedMode: mode }, { merge: true });
+      }
     }
   };
 
@@ -61,6 +113,14 @@ export default function App() {
   const handleConnectLinkedIn = () => {
     setIsLinkedInConnected(!isLinkedInConnected);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-indigo-electric animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) {
     return <AuthPage onLogin={handleLogin} />;

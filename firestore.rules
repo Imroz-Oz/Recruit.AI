@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      // Note: Google Auth in this environment usually handles verification, 
+      // but we'll include it for best practice.
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Validation Blueprints (User)
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.role in ['recruiter', 'candidate'];
+    }
+
+    // Validation Blueprints (Candidate)
+    function isValidCandidate(data) {
+      return data.keys().hasAll(['recruiterId', 'name', 'title']) &&
+             data.recruiterId == request.auth.uid &&
+             data.name is string && data.name.size() <= 200 &&
+             data.title is string && data.title.size() <= 200;
+    }
+
+    // Master Gate Patterns
+    
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && (
+        // Allow updating selectedMode
+        incoming().diff(existing()).affectedKeys().hasOnly(['selectedMode']) ||
+        isValidUser(incoming())
+      );
+
+      // Saved Jobs
+      match /savedJobs/{jobId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Internal Talent Pool
+    match /candidates/{candidateId} {
+      allow read: if isSignedIn() && existing().recruiterId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.recruiterId == request.auth.uid;
+      allow create: if isSignedIn() && isValidCandidate(incoming());
+      allow update: if isSignedIn() && existing().recruiterId == request.auth.uid && isValidCandidate(incoming());
+      allow delete: if isSignedIn() && existing().recruiterId == request.auth.uid;
+    }
+
+    // Job Feed
+    match /jobs/{jobId} {
+      allow read, list: if isSignedIn();
+      allow write: if false; 
+    }
+  }
+}

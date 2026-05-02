@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["recruiter", "candidate"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Candidate in a recruiter's internal pool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recruiterId": { "type": "string" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "location": { "type": "string" },
+        "score": { "type": "number" },
+        "experience": { "type": "number" },
+        "degree": { "type": "string" },
+        "resumeSnippet": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recruiterId", "name", "title"]
+    },
+    "Job": {
+      "title": "Job Posting",
+      "description": "Available job opportunities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "company": { "type": "string" },
+        "location": { "type": "string" },
+        "type": { "type": "string" },
+        "salary": { "type": "string" },
+        "description": { "type": "string" },
+        "sector": { "type": "string" },
+        "postedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "company"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/users/{userId}/savedJobs/{jobId}": {
+      "schema": "Job",
+      "description": "Jobs saved by the user"
+    },
+    "/candidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "Internal talent pool candidates"
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Job postings"
+    }
+  }
+}

@@ -12,7 +12,8 @@ export type Page =
   | 'personal-iq'
   | 'job-feed'
   | 'resume-vault'
-  | 'interview-prep';
+  | 'interview-prep'
+  | 'profile';
 
 export interface User {
   id: string;

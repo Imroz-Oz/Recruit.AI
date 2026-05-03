@@ -49,6 +49,37 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
   const [relocation, setRelocation] = useState(false);
   const [certifications, setCertifications] = useState('');
 
+  // Suggestions State
+  const [activeSuggestionField, setActiveSuggestionField] = useState<string | null>(null);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+
+  const SUGGESTIONS_DATA: Record<string, string[]> = {
+    title: ['Software Engineer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'DevOps Engineer', 'Product Manager', 'Data Scientist', 'Project Manager', 'UX Designer', 'Solution Architect', 'Engineering Manager'],
+    city: ['San Francisco', 'New York', 'London', 'Berlin', 'Austin', 'Seattle', 'Toronto', 'Chicago', 'San Jose', 'Boston', 'Los Angeles'],
+    industry: ['Fintech', 'SaaS', 'Healthcare', 'E-commerce', 'Cybersecurity', 'Edtech', 'Adtech', 'Proptech', 'Automotive', 'Logistics'],
+    companies: ['Google', 'Meta', 'Amazon', 'Apple', 'Netflix', 'Microsoft', 'NVIDIA', 'Salesforce', 'Uber', 'Airbnb', 'Stripe', 'Shopify']
+  };
+
+  const handleSuggestionSelect = (field: string, value: string) => {
+    if (field === 'title') setTitle(value);
+    else if (field === 'city') setLocation({ ...location, city: value });
+    else if (field === 'industry') setIndustry(value);
+    else if (field === 'companies') setCompanies(value);
+    setActiveSuggestionField(null);
+  };
+
+  const updateSuggestions = (field: string, input: string) => {
+    setActiveSuggestionField(field);
+    if (!input.trim()) {
+      setFilteredSuggestions([]);
+      return;
+    }
+    const filtered = SUGGESTIONS_DATA[field]?.filter(item => 
+      item.toLowerCase().includes(input.toLowerCase())
+    ) || [];
+    setFilteredSuggestions(filtered);
+  };
+
   // Internal Pool State
   const [talentPool, setTalentPool] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -259,11 +290,41 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
           </div>
 
           <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
-            <div className="space-y-3">
+            <div className="space-y-3 relative">
               <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
                 <Terminal className="w-3.5 h-3.5" /> Core Target
               </label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Target Job Title" className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
+              <input 
+                value={title} 
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  updateSuggestions('title', e.target.value);
+                }} 
+                onFocus={() => updateSuggestions('title', title)}
+                onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+                placeholder="Target Job Title" 
+                className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
+              />
+              <AnimatePresence>
+                {activeSuggestionField === 'title' && filteredSuggestions.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
+                  >
+                    {filteredSuggestions.map((s, i) => (
+                      <button 
+                        key={i}
+                        onClick={() => handleSuggestionSelect('title', s)}
+                        className="w-full px-6 py-3 text-left text-[10px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Location Filter */}
@@ -272,25 +333,99 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
                 <MapPin className="w-3.5 h-3.5" /> Geo-Targeting
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <input value={location.city} onChange={(e) => setLocation({...location, city: e.target.value})} placeholder="City" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
-                <input value={location.zip} onChange={(e) => setLocation({...location, zip: e.target.value})} placeholder="Zip Code" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
+                <div className="relative">
+                  <input 
+                    value={location.city} 
+                    onChange={(e) => {
+                      setLocation({...location, city: e.target.value});
+                      updateSuggestions('city', e.target.value);
+                    }} 
+                    onFocus={() => updateSuggestions('city', location.city)}
+                    onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+                    placeholder="City" 
+                    className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
+                  />
+                  <AnimatePresence>
+                    {activeSuggestionField === 'city' && filteredSuggestions.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
+                      >
+                        {filteredSuggestions.map((s, i) => (
+                          <button 
+                            key={i}
+                            onClick={() => handleSuggestionSelect('city', s)}
+                            className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <input value={location.zip} onChange={(e) => setLocation({...location, zip: e.target.value})} placeholder="Zip Code" className="p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 bg-warm-gray rounded-xl">
+              <div className="flex items-center gap-2 px-3 py-1 bg-warm-gray rounded-xl">
                  <span className="text-[9px] font-bold text-midnight/40 w-12 shrink-0">Radius</span>
-                 <input type="range" min="5" max="100" step="5" value={location.radius} onChange={(e) => setLocation({...location, radius: e.target.value})} className="flex-1 accent-indigo-electric" />
-                 <span className="text-[10px] font-bold text-indigo-electric w-8 text-right font-mono">{location.radius}mi</span>
+                 <select 
+                   value={location.radius} 
+                   onChange={(e) => setLocation({...location, radius: e.target.value})} 
+                   className="flex-1 bg-transparent text-[10px] font-bold text-indigo-electric outline-none cursor-pointer p-3"
+                 >
+                   <option value="10">10 Miles</option>
+                   <option value="20">20 Miles</option>
+                   <option value="30">30 Miles</option>
+                   <option value="50">50 Miles</option>
+                   <option value="75">75 Miles</option>
+                   <option value="100">100 Miles</option>
+                   <option value="150">150 Miles</option>
+                   <option value="200">200 Miles</option>
+                 </select>
               </div>
             </div>
 
             {/* Industry / Exp */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Briefcase className="w-3.5 h-3.5" /> Industry</label>
-                <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Fintech" className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
+                <input 
+                  value={industry} 
+                  onChange={(e) => {
+                    setIndustry(e.target.value);
+                    updateSuggestions('industry', e.target.value);
+                  }} 
+                  onFocus={() => updateSuggestions('industry', industry)}
+                  onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+                  placeholder="e.g. Fintech" 
+                  className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/10 transition-all font-bold" 
+                />
+                <AnimatePresence>
+                  {activeSuggestionField === 'industry' && filteredSuggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
+                    >
+                      {filteredSuggestions.map((s, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => handleSuggestionSelect('industry', s)}
+                          className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               <div className="space-y-2">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3.5 h-3.5" /> Min Exp</label>
-                <input type="number" value={minExp} onChange={(e) => setMinExp(Number(e.target.value))} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
+                <input type="number" value={minExp} onChange={(e) => setMinExp(Number(e.target.value))} className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none font-bold" />
               </div>
             </div>
 
@@ -298,14 +433,14 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
             <div className="space-y-4 pt-4 border-t border-midnight/5">
               <div className="space-y-2">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> Certifications</label>
-                <input value={certifications} onChange={(e) => setCertifications(e.target.value)} placeholder="AWS Certified, CISSP, PMP..." className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
+                <input value={certifications} onChange={(e) => setCertifications(e.target.value)} placeholder="AWS Certified, CISSP, PMP..." className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><GraduationCap className="w-3.5 h-3.5" /> Graduation Year / Degree</label>
                 <div className="flex gap-2">
-                  <input value={gradYear} onChange={(e) => setGradYear(e.target.value)} placeholder="Year" className="w-20 p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
-                  <select value={degree} onChange={(e) => setDegree(e.target.value)} className="flex-1 p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none">
+                  <input value={gradYear} onChange={(e) => setGradYear(e.target.value)} placeholder="Year" className="w-24 p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
+                  <select value={degree} onChange={(e) => setDegree(e.target.value)} className="flex-1 p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
                     <option>Any Degree</option>
                     <option>Bachelors</option>
                     <option>Masters</option>
@@ -314,9 +449,39 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> Target Companies</label>
-                <input value={companies} onChange={(e) => setCompanies(e.target.value)} placeholder="FAANG, Shopify, Stripe..." className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
+                <input 
+                  value={companies} 
+                  onChange={(e) => {
+                    setCompanies(e.target.value);
+                    updateSuggestions('companies', e.target.value);
+                  }} 
+                  onFocus={() => updateSuggestions('companies', companies)}
+                  onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+                  placeholder="FAANG, Shopify, Stripe..." 
+                  className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/10 transition-all font-bold" 
+                />
+                <AnimatePresence>
+                  {activeSuggestionField === 'companies' && filteredSuggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
+                    >
+                      {filteredSuggestions.map((s, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => handleSuggestionSelect('companies', s)}
+                          className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
                <label className="flex items-center gap-3 p-3 bg-indigo-electric/5 rounded-xl cursor-pointer hover:bg-indigo-electric/10 transition-all">

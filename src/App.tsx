@@ -13,12 +13,14 @@ import HistoryPage from './pages/HistoryPage';
 import AssistantPage from './pages/AssistantPage';
 import CandidatesPage from './pages/CandidatesPage';
 import NetworkPage from './pages/NetworkPage';
-import JobPostingPage from './pages/JobPostingPage';
 import AuthPage from './pages/AuthPage';
 import ModeSelection from './components/ModeSelection';
 import JobFeedPage from './pages/JobFeedPage';
 import ResumeVaultPage from './pages/ResumeVaultPage';
 import InterviewPrepPage from './pages/InterviewPrepPage';
+import TalentArchivePage from './pages/TalentArchivePage';
+import JobInventoryPage from './pages/JobInventoryPage';
+import ProfilePage from './pages/ProfilePage';
 import { Page, User, AppMode, SearchMode } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -33,6 +35,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isLinkedInConnected, setIsLinkedInConnected] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
+  const [selectedCandidateForMarket, setSelectedCandidateForMarket] = useState<any | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -114,6 +117,11 @@ export default function App() {
     setIsLinkedInConnected(!isLinkedInConnected);
   };
 
+  const handleReverseMarket = (candidate: any) => {
+    setSelectedCandidateForMarket(candidate);
+    setCurrentPage('job-feed');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -150,19 +158,21 @@ export default function App() {
       case 'network':
         return <NetworkPage />;
       case 'postings':
-        return <JobPostingPage />;
+        return <JobInventoryPage />;
       case 'personal-iq':
         return <PersonalIQPage />;
       case 'job-feed':
-        return <JobFeedPage />;
+        return <JobFeedPage preSearchCandidate={selectedCandidateForMarket} />;
       case 'resume-vault':
-        return <ResumeVaultPage />;
+        return <TalentArchivePage onReverseMarket={handleReverseMarket} />;
       case 'interview-prep':
         return <InterviewPrepPage />;
       case 'history':
         return <HistoryPage />;
       case 'assistant':
         return <AssistantPage appMode={user.selectedMode || 'recruiter'} />;
+      case 'profile':
+        return <ProfilePage user={user} />;
       default:
         return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={setCurrentPage} appMode={user.selectedMode || 'recruiter'} />;
     }

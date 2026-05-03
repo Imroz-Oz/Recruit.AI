@@ -95,14 +95,20 @@ const JOBS: Job[] = [
   }
 ];
 
-export default function JobFeedPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate?: any }) {
+  const [searchQuery, setSearchQuery] = useState(preSearchCandidate ? preSearchCandidate.title : '');
   const [filterType, setFilterType] = useState('All Market');
   const [industry, setIndustry] = useState('All Sectors');
   const [salaryRange, setSalaryRange] = useState('Any');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    if (preSearchCandidate) {
+      setSearchQuery(preSearchCandidate.title);
+    }
+  }, [preSearchCandidate]);
 
   useEffect(() => {
     const fetchSavedJobs = async () => {

@@ -73,5 +73,15 @@ service cloud.firestore {
       allow read, list: if isSignedIn();
       allow write: if false; 
     }
+
+    // Recruiter Created Jobs
+    match /recruiterJobs/{jobId} {
+      allow read, write: if isSignedIn() && (
+        request.method == 'create' ? 
+          incoming().recruiterId == request.auth.uid : 
+          existing().recruiterId == request.auth.uid
+      );
+      allow list: if isSignedIn() && resource.data.recruiterId == request.auth.uid;
+    }
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, Sparkles, ShieldCheck } from 'lucide-react';
+import { LogIn, Sparkles, ShieldCheck, Loader2 } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
 
@@ -10,9 +10,12 @@ interface AuthPageProps {
 
 export default function AuthPage({ onLogin }: AuthPageProps) {
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
+    if (isLoading) return;
     setError(null);
+    setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -20,8 +23,15 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         onLogin(result.user.email);
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to sign in with Google');
+      if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user') {
+        // Softly handle common cancellation scenarios
+        console.log('Login attempt cancelled by user or environment.');
+      } else {
+        console.error(err);
+        setError(err.message || 'Failed to sign in with Google');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -33,15 +43,15 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border border-midnight/5 flex flex-col"
       >
         <div className="flex items-center gap-3 mb-10 justify-center">
-          <div className="w-12 h-12 bg-indigo-electric rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="text-white font-serif font-bold text-2xl italic">IQ</span>
+          <div className="w-12 h-12 bg-midnight rounded-2xl flex items-center justify-center shadow-lg shadow-midnight/20">
+            <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-3xl font-serif font-bold tracking-tight text-midnight">Recruit IQ</h1>
         </div>
 
         <div className="space-y-2 text-center mb-8">
           <h2 className="text-2xl font-serif font-bold text-midnight italic">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+            Intelligence Portal
           </h2>
           <p className="text-midnight/40 text-sm font-medium">
             Professional AI Intelligence for Modern Staffing
@@ -57,10 +67,15 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-opacity-90 transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-3"
+            disabled={isLoading}
+            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-opacity-90 transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-3 disabled:opacity-50"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-4 h-4 bg-white rounded-full p-0.5" alt="Google" />
-            Continue with Google
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <img src="https://www.google.com/favicon.ico" className="w-4 h-4 bg-white rounded-full p-0.5" alt="Google" />
+            )}
+            {isLoading ? 'Decrypting...' : 'Continue with Google'}
           </button>
 
           <p className="text-[10px] text-midnight/30 text-center font-medium leading-relaxed">

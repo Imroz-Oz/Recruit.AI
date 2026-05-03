@@ -67,7 +67,11 @@
     },
     "/jobs/{jobId}": {
       "schema": "Job",
-      "description": "Job postings"
+      "description": "Public job postings"
+    },
+    "/recruiterJobs/{jobId}": {
+      "schema": "Job",
+      "description": "Private jobs created by recruiters"
     }
   }
 }

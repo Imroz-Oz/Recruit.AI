@@ -5,6 +5,7 @@ import {
   FileText, 
   History, 
   ShieldCheck, 
+  Briefcase,
   Bot,
   Users,
   Globe,
@@ -41,8 +42,10 @@ export default function Sidebar({ currentPage, setCurrentPage, isLinkedInConnect
   const recruiterItems = [
     { id: 'dashboard' as Page, label: 'Launcher', icon: LayoutDashboard },
     { id: 'sourcing' as Page, label: 'Search Builder', icon: Search },
-    { id: 'intelligence' as Page, label: 'Intelligence Hub', icon: Zap },
+    { id: 'resume-vault' as Page, label: 'Talent Archive', icon: ShieldCheck },
+    { id: 'postings' as Page, label: 'Job Inventory', icon: Briefcase },
     { id: 'candidates' as Page, label: 'Pipeline / Submits', icon: Users },
+    { id: 'intelligence' as Page, label: 'Intelligence Hub', icon: Zap },
     { id: 'assistant' as Page, label: 'AI Recruiter', icon: Bot },
     { id: 'history' as Page, label: 'Archive', icon: History },
   ];
@@ -61,7 +64,7 @@ export default function Sidebar({ currentPage, setCurrentPage, isLinkedInConnect
 
   return (
     <div className={cn(
-      "w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-50 transition-all duration-500",
+      "w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-50 transition-all duration-500 overflow-y-auto scrollbar-hide",
       appMode === 'recruiter' ? "bg-midnight" : "bg-emerald-950 shadow-2xl shadow-emerald-950/40"
     )}>
       <div className="p-8">
@@ -151,17 +154,26 @@ export default function Sidebar({ currentPage, setCurrentPage, isLinkedInConnect
           </button>
         </div>
 
-        <div className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white transition-colors cursor-pointer group border-t border-white/5 pt-6">
-          <User className="w-5 h-5 text-white/40 group-hover:text-white/80" />
-          <span className="text-xs font-medium">Professional Profile</span>
+        <div 
+          onClick={() => setCurrentPage('profile')}
+          className={cn(
+            "flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer group border-t border-white/5 pt-6",
+            currentPage === 'profile' ? "text-white" : "text-white/60 hover:text-white"
+          )}
+        >
+          <User className={cn(
+            "w-5 h-5 transition-colors",
+            currentPage === 'profile' ? "text-white" : "text-white/40 group-hover:text-white/80"
+          )} />
+          <span className="text-xs font-medium">Profile</span>
         </div>
         
         <div 
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-coral transition-colors cursor-pointer group"
+          className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-red-400 transition-colors cursor-pointer group"
         >
-          <LogOut className="w-5 h-5 text-white/40 group-hover:text-coral/80" />
-          <span className="text-xs font-medium">Finish Session</span>
+          <LogOut className="w-5 h-5 text-white/40 group-hover:text-red-400 opacity-70 group-hover:opacity-100 transition-opacity" />
+          <span className="text-xs font-bold uppercase tracking-widest">Logout</span>
         </div>
       </div>
     </div>

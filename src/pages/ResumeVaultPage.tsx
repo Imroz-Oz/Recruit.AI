@@ -46,12 +46,12 @@ export default function ResumeVaultPage() {
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-100">
           <Cpu className="w-4 h-4 text-emerald-600" />
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">
-            Profile DNA Optimizer v2.4
+            Portfolio Engine v2.4
           </span>
         </div>
-        <h2 className="text-5xl font-serif font-bold text-midnight italic">Quantify Your Market Value</h2>
+        <h2 className="text-5xl font-serif font-bold text-midnight italic">Quantify Your Market DNA</h2>
         <p className="text-midnight/50 font-medium max-w-xl mx-auto italic">
-          Upload your resume to calibrate your semantic fingerprint against current recruitment algorithms.
+          Calibrate your professional assets across the enterprise-grade secure portfolio for peak market alignment.
         </p>
       </header>
 

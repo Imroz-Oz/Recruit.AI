@@ -19,12 +19,15 @@ import {
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { cn } from '@/src/lib/utils';
+import { analyzeCandidateMatch } from '@/src/services/aiService';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 export default function JobInventoryPage() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
   const [matchingCandidates, setMatchingCandidates] = useState<any[]>([]);
   const [selectedJobForMatches, setSelectedJobForMatches] = useState<any | null>(null);
 
@@ -55,7 +58,7 @@ export default function JobInventoryPage() {
       const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setJobs(fetched);
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      handleFirestoreError(error, OperationType.LIST, 'recruiterJobs');
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +84,7 @@ export default function JobInventoryPage() {
       // Trigger matching logic
       checkForMatches({ id: docRef.id, ...jobData });
     } catch (error) {
-      console.error('Error creating job:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'recruiterJobs');
     } finally {
       setIsSyncing(false);
     }
@@ -92,12 +95,13 @@ export default function JobInventoryPage() {
       await deleteDoc(doc(db, 'recruiterJobs', id));
       setJobs(jobs.filter(j => j.id !== id));
     } catch (error) {
-      console.error('Error deleting job:', error);
+      handleFirestoreError(error, OperationType.DELETE, `recruiterJobs/${id}`);
     }
   };
 
   const checkForMatches = async (job: any) => {
     if (!auth.currentUser) return;
+    setIsAnalyzing(job.id);
     try {
       const q = query(
         collection(db, 'candidates'),
@@ -106,21 +110,35 @@ export default function JobInventoryPage() {
       const querySnapshot = await getDocs(q);
       const allCandidates = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       
-      // Basic matching logic: search keywords in title or requirements
-      const matches = allCandidates.filter(c => {
-        const titleMatch = (c.title || '').toLowerCase().includes(job.title.toLowerCase());
-        const skillMatch = job.requirements.some((r: string) => 
-          (c.keywords || []).some((k: string) => k.toLowerCase().includes(r.toLowerCase()))
-        );
-        return titleMatch || skillMatch;
-      });
+      // Semantic AI Matching logic
+      const matchesWithAnalysis = [];
+      
+      // Limit to first 10 for performance in this turn
+      const candidatesToTest = allCandidates.slice(0, 10);
+      
+      for (const candidate of candidatesToTest) {
+        const result = await analyzeCandidateMatch(job, candidate);
+        if (result && result.score > 60) {
+          matchesWithAnalysis.push({
+            ...candidate,
+            aiMatchScore: result.score,
+            aiInsight: result.insight
+          });
+        }
+      }
 
-      if (matches.length > 0) {
-        setMatchingCandidates(matches);
+      if (matchesWithAnalysis.length > 0) {
+        setMatchingCandidates(matchesWithAnalysis.sort((a, b) => b.aiMatchScore - a.aiMatchScore));
         setSelectedJobForMatches(job);
+      } else if (allCandidates.length === 0) {
+        alert("No candidates found in your archive to match against.");
+      } else {
+        alert("No strong AI matches found for this brief in your current archive.");
       }
     } catch (error) {
       console.error('Matching failed:', error);
+    } finally {
+      setIsAnalyzing(null);
     }
   };
 
@@ -130,10 +148,10 @@ export default function JobInventoryPage() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/5 rounded-full border border-amber-100">
             <Briefcase className="w-3.5 h-3.5 text-amber-600" />
-            <span className="text-[9px] font-bold text-amber-600 uppercase tracking-[0.2em]">Recruiter Job Inventory</span>
+            <span className="text-[9px] font-bold text-amber-600 uppercase tracking-[0.2em]">Strategic Mission Briefs</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Active Postings</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Create and manage internal vacancies for high-fidelity matching</p>
+          <h2 className="text-4xl font-serif font-bold text-midnight italic">Mission Briefs</h2>
+          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Define and manage internal mission parameters for elite matching</p>
         </div>
         <button 
           onClick={() => setShowModal(true)}
@@ -239,9 +257,16 @@ export default function JobInventoryPage() {
                 </div>
                 <button 
                   onClick={() => checkForMatches(job)}
-                  className="px-6 py-2.5 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-coral transition-colors flex items-center gap-2"
+                  disabled={isAnalyzing === job.id}
+                  className={cn(
+                    "px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-colors flex items-center gap-2",
+                    isAnalyzing === job.id 
+                      ? "bg-indigo-electric/20 text-indigo-electric cursor-wait" 
+                      : "bg-midnight text-white hover:bg-coral"
+                  )}
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Run Match Analysis
+                  {isAnalyzing === job.id ? <Zap className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {isAnalyzing === job.id ? 'Analyzing Logic...' : 'Run Match Analysis'}
                 </button>
               </div>
             </motion.div>

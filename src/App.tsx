@@ -5,11 +5,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
+import OnboardingWizard from './components/OnboardingWizard';
 import DashboardPage from './pages/DashboardPage';
 import IntelligenceHubPage from './pages/IntelligenceHubPage';
 import PersonalIQPage from './pages/PersonalIQPage';
 import SourcingPage from './pages/SourcingPage';
-import HistoryPage from './pages/HistoryPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import AssistantPage from './pages/AssistantPage';
 import CandidatesPage from './pages/CandidatesPage';
 import NetworkPage from './pages/NetworkPage';
@@ -19,6 +20,7 @@ import JobFeedPage from './pages/JobFeedPage';
 import ResumeVaultPage from './pages/ResumeVaultPage';
 import InterviewPrepPage from './pages/InterviewPrepPage';
 import TalentArchivePage from './pages/TalentArchivePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import JobInventoryPage from './pages/JobInventoryPage';
 import ProfilePage from './pages/ProfilePage';
 import { Page, User, AppMode, SearchMode } from './types';
@@ -28,6 +30,7 @@ import { Bot, Loader2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './lib/firestoreErrorHandler';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,12 +39,50 @@ export default function App() {
   const [isLinkedInConnected, setIsLinkedInConnected] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [selectedCandidateForMarket, setSelectedCandidateForMarket] = useState<any | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handleLocation = () => {
+      if (window.location.hash === '#/privacy') {
+        setCurrentPage('privacy');
+      }
+    };
+
+    // Check on mount
+    handleLocation();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleLocation);
+    return () => window.removeEventListener('hashchange', handleLocation);
+  }, []);
+
+  const completeOnboarding = async (data: any) => {
+    if (!user) return;
+    const updatedUser = { ...user, onboardingCompleted: true };
+    setUser(updatedUser);
+    
+    // Update in Firestore
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'users', auth.currentUser.uid), { onboardingCompleted: true }, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+      }
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch user metadata from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        let userDoc;
+        try {
+          userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        } catch (err) {
+          handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
+          setLoading(false);
+          return;
+        }
         
         let userData: User;
         if (userDoc.exists()) {
@@ -50,32 +91,51 @@ export default function App() {
           userData = {
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            name: profile.name || profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
             isLoggedIn: true,
             role: profile.role || (isCompany ? 'corp' : 'candidate'),
             isCompanyUser: isCompany || profile.role === 'recruiter',
-            selectedMode: profile.selectedMode
+            selectedMode: profile.selectedMode,
+            title: profile.title,
+            bio: profile.bio,
+            location: profile.location,
+            skills: profile.skills
           };
         } else {
           // Initialize user in Firestore
+          const storedRole = localStorage.getItem('intendedRole');
           const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
-          const role = isCompany ? 'recruiter' : 'candidate';
           
+          let role: 'corp' | 'candidate' = isCompany ? 'corp' : 'candidate';
+          if (storedRole === 'recruiter') role = 'corp';
+          if (storedRole === 'hunter') role = 'candidate';
+          
+          const selectedMode = storedRole === 'recruiter' ? 'recruiter' : storedRole === 'hunter' ? 'hunter' : undefined;
+
           userData = {
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
             isLoggedIn: true,
-            role: isCompany ? 'corp' : 'candidate', // Keep 'corp' for UI compatibility but 'recruiter' in DB
-            isCompanyUser: isCompany
+            role: role,
+            isCompanyUser: role === 'corp',
+            selectedMode: selectedMode,
+            onboardingCompleted: false
           };
 
-          await setDoc(doc(db, 'users', firebaseUser.uid), {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            role,
-            createdAt: new Date().toISOString()
-          });
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              role: role,
+              selectedMode: selectedMode || null,
+              onboardingCompleted: false,
+              createdAt: new Date().toISOString()
+            });
+            localStorage.removeItem('intendedRole');
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+          }
         }
         setUser(userData);
       } else {
@@ -99,7 +159,11 @@ export default function App() {
       
       // Persist selection
       if (auth.currentUser) {
-        await setDoc(doc(db, 'users', auth.currentUser.uid), { selectedMode: mode }, { merge: true });
+        try {
+          await setDoc(doc(db, 'users', auth.currentUser.uid), { selectedMode: mode }, { merge: true });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+        }
       }
     }
   };
@@ -128,6 +192,11 @@ export default function App() {
         <Loader2 className="w-12 h-12 text-indigo-electric animate-spin" />
       </div>
     );
+  }
+
+  // Handle public pages like Privacy Policy without needing a user
+  if (currentPage === 'privacy') {
+    return <PrivacyPolicyPage onBack={user ? () => setCurrentPage('dashboard') : undefined} />;
   }
 
   if (!user) {
@@ -164,15 +233,19 @@ export default function App() {
       case 'job-feed':
         return <JobFeedPage preSearchCandidate={selectedCandidateForMarket} />;
       case 'resume-vault':
-        return <TalentArchivePage onReverseMarket={handleReverseMarket} />;
+        return user.selectedMode === 'hunter' 
+          ? <ResumeVaultPage /> 
+          : <TalentArchivePage onReverseMarket={handleReverseMarket} />;
       case 'interview-prep':
         return <InterviewPrepPage />;
+      case 'privacy':
+        return <PrivacyPolicyPage onBack={user ? () => setCurrentPage('dashboard') : undefined} />;
       case 'history':
-        return <HistoryPage />;
+        return <AnalyticsPage />;
       case 'assistant':
         return <AssistantPage appMode={user.selectedMode || 'recruiter'} />;
       case 'profile':
-        return <ProfilePage user={user} />;
+        return <ProfilePage user={user} onUpdateUser={(updated) => setUser(updated)} />;
       default:
         return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={setCurrentPage} appMode={user.selectedMode || 'recruiter'} />;
     }
@@ -190,9 +263,14 @@ export default function App() {
         onConnectLinkedIn={handleConnectLinkedIn}
         appMode={user.selectedMode}
         onSwitchMode={() => setUser({ ...user, selectedMode: undefined })}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       
-      <main className="flex-1 ml-64 p-12 overflow-y-auto relative">
+      <main className={cn(
+        "flex-1 p-12 overflow-y-auto relative transition-all duration-500",
+        sidebarCollapsed ? "ml-20" : "ml-64"
+      )}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}
@@ -205,6 +283,13 @@ export default function App() {
             {renderPage()}
           </motion.div>
         </AnimatePresence>
+
+        {user.isLoggedIn && user.onboardingCompleted === false && (
+          <OnboardingWizard 
+            onComplete={completeOnboarding} 
+            role={user.selectedMode || 'hunter'} 
+          />
+        )}
 
         {/* Floating Copilot Trigger */}
         <button 

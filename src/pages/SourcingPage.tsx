@@ -14,10 +14,10 @@ export default function SourcingPage({ isLinkedInConnected }: { isLinkedInConnec
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-electric/5 rounded-full border border-indigo-100">
             <Zap className="w-3.5 h-3.5 text-indigo-electric fill-indigo-electric" />
-            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Sourcing Intelligence Tier 1</span>
+            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Selection Orbit Protocol</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Candidate Intelligence Sourcing</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Connect JD intent with Boolean logic & internal talent pools</p>
+          <h2 className="text-4xl font-serif font-bold text-midnight italic">Selection Orbit</h2>
+          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Connect elite JD intent with Boolean logic & executive talent archives</p>
         </div>
         <div className="flex gap-4">
           <button className="px-6 py-2.5 rounded-full border-2 border-midnight font-bold text-xs hover:bg-midnight hover:text-white transition-all uppercase tracking-widest">

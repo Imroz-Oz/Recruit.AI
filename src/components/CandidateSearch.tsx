@@ -26,6 +26,7 @@ import { generateBooleanFromJD, BooleanResponse } from '@/src/services/geminiSer
 import { cn } from '@/src/lib/utils';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface CandidateSearchProps {
   onMatchesFound: (matches: any[]) => void;
@@ -54,10 +55,28 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
 
   const SUGGESTIONS_DATA: Record<string, string[]> = {
-    title: ['Software Engineer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'DevOps Engineer', 'Product Manager', 'Data Scientist', 'Project Manager', 'UX Designer', 'Solution Architect', 'Engineering Manager'],
-    city: ['San Francisco', 'New York', 'London', 'Berlin', 'Austin', 'Seattle', 'Toronto', 'Chicago', 'San Jose', 'Boston', 'Los Angeles'],
-    industry: ['Fintech', 'SaaS', 'Healthcare', 'E-commerce', 'Cybersecurity', 'Edtech', 'Adtech', 'Proptech', 'Automotive', 'Logistics'],
-    companies: ['Google', 'Meta', 'Amazon', 'Apple', 'Netflix', 'Microsoft', 'NVIDIA', 'Salesforce', 'Uber', 'Airbnb', 'Stripe', 'Shopify']
+    title: [
+      'Software Engineer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 
+      'DevOps Engineer', 'Product Manager', 'Data Scientist', 'Project Manager', 
+      'UX Designer', 'Solution Architect', 'Engineering Manager', 'SRE', 
+      'Machine Learning Engineer', 'Product Designer', 'QA Engineer', 'Security Engineer',
+      'Data Engineer', 'Mobile Developer', 'React Native Developer', 'Cloud Architect'
+    ],
+    city: [
+      'San Francisco', 'New York', 'London', 'Berlin', 'Austin', 'Seattle', 'Toronto', 
+      'Chicago', 'San Jose', 'Boston', 'Los Angeles', 'Amsterdam', 'Paris', 'Stockholm',
+      'Dublin', 'Singapore', 'Sydney', 'Tokyo', 'Munich', 'Tel Aviv', 'Barcelona'
+    ],
+    industry: [
+      'Fintech', 'SaaS', 'Healthcare', 'E-commerce', 'Cybersecurity', 'Edtech', 
+      'Adtech', 'Proptech', 'Automotive', 'Logistics', 'Biotech', 'GreenTech', 
+      'Gaming', 'SpaceTech', 'Artificial Intelligence', 'Blockchain'
+    ],
+    companies: [
+      'Google', 'Meta', 'Amazon', 'Apple', 'Netflix', 'Microsoft', 'NVIDIA', 
+      'Salesforce', 'Uber', 'Airbnb', 'Stripe', 'Shopify', 'Tesla', 'SpaceX', 
+      'Palantir', 'Snowflake', 'Datadog', 'Coinbase', 'Discord'
+    ]
   };
 
   const handleSuggestionSelect = (field: string, value: string) => {
@@ -98,7 +117,7 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
         const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTalentPool(fetched);
       } catch (error) {
-        console.error('Error fetching talent:', error);
+        handleFirestoreError(error, OperationType.LIST, 'candidates');
       } finally {
         setIsSyncing(false);
       }
@@ -152,28 +171,34 @@ export default function CandidateSearch({ onMatchesFound }: CandidateSearchProps
     setIsSyncing(true);
     try {
       const uploadPromises = Array.from(files as unknown as File[]).map(async (file) => {
-        const talent = {
-          recruiterId: auth.currentUser?.uid,
-          name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
-          title: 'Imported Talent',
-          score: 100,
-          location: 'Internal Database',
-          isInternal: true,
-          experience: Math.floor(Math.random() * 10) + 2,
-          degree: 'Analyzing...',
-          resumeSnippet: `Securely indexed record for ${file.name}. This profile is private to your organization.`,
-          highlightedMatches: [],
-          keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
-          createdAt: serverTimestamp()
-        };
-        const docRef = await addDoc(collection(db, 'candidates'), talent);
-        return { id: docRef.id, ...talent };
+        try {
+          const talent = {
+            recruiterId: auth.currentUser?.uid,
+            name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
+            title: 'Imported Talent',
+            score: 100,
+            location: 'Internal Database',
+            isInternal: true,
+            experience: Math.floor(Math.random() * 10) + 2,
+            degree: 'Analyzing...',
+            resumeSnippet: `Securely indexed record for ${file.name}. This profile is private to your organization.`,
+            highlightedMatches: [],
+            keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
+            createdAt: serverTimestamp()
+          };
+          const docRef = await addDoc(collection(db, 'candidates'), talent);
+          return { id: docRef.id, ...talent };
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, 'candidates');
+          return null;
+        }
       });
 
-      const newTalents = await Promise.all(uploadPromises);
+      const results = await Promise.all(uploadPromises);
+      const newTalents = results.filter(t => t !== null) as any[];
       setTalentPool(prev => [...newTalents, ...prev]);
     } catch (error) {
-      console.error('Upload failed:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'candidates');
     } finally {
       setIsSyncing(false);
     }

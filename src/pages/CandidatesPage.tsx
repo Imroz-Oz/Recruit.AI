@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
@@ -14,10 +14,17 @@ import {
   MessageSquare,
   Lock,
   Globe,
-  User
+  User,
+  Zap,
+  Sparkles,
+  ArrowRight,
+  TrendingUp,
+  Brain,
+  RotateCcw
 } from 'lucide-react';
 import { Candidate, PipelineStage, SubmissionDetails, Note } from '@/src/types';
 import { cn } from '@/src/lib/utils';
+import { generatePipelineBriefing, generateCandidateIntelligence } from '@/src/services/aiService';
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([
@@ -57,6 +64,34 @@ export default function CandidatesPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isNotePrivate, setIsNotePrivate] = useState(true);
   const [noteText, setNoteText] = useState('');
+  const [pipelineBriefing, setPipelineBriefing] = useState<string | null>(null);
+  const [isBriefingLoading, setIsBriefingLoading] = useState(false);
+  const [candidateAiSummary, setCandidateAiSummary] = useState<string | null>(null);
+  const [isAiSummarizing, setIsAiSummarizing] = useState(false);
+
+  useEffect(() => {
+    const fetchBriefing = async () => {
+      setIsBriefingLoading(true);
+      const briefing = await generatePipelineBriefing(candidates);
+      setPipelineBriefing(briefing);
+      setIsBriefingLoading(false);
+    };
+    fetchBriefing();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCandidate) {
+      setCandidateAiSummary(null);
+      handleGenerateCandidateAi(selectedCandidate);
+    }
+  }, [selectedCandidate?.id]);
+
+  const handleGenerateCandidateAi = async (candidate: Candidate) => {
+    setIsAiSummarizing(true);
+    const summary = await generateCandidateIntelligence(candidate);
+    setCandidateAiSummary(summary);
+    setIsAiSummarizing(false);
+  };
 
   const stages: { id: PipelineStage; label: string; color: string }[] = [
     { id: 'sourcing', label: 'Sourcing', color: 'bg-neutral-100 text-neutral-500' },
@@ -95,8 +130,8 @@ export default function CandidatesPage() {
     <div className="h-full flex flex-col space-y-8 animate-in fade-in duration-500">
       <header className="flex justify-between items-center">
         <div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Active Pipeline</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest mt-2">Manage submissions, interviews, and offers</p>
+          <h2 className="text-4xl font-serif font-bold text-midnight italic">Engagement Flow</h2>
+          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest mt-2">Manage executive submissions, high-tier interviews, and offer cycles</p>
         </div>
         <div className="flex gap-4">
           <button className="px-6 py-2.5 bg-midnight text-white rounded-full font-bold text-xs uppercase tracking-widest shadow-xl shadow-midnight/10">
@@ -104,6 +139,36 @@ export default function CandidatesPage() {
           </button>
         </div>
       </header>
+
+      {/* AI Pipeline Briefing */}
+      <div className="bg-indigo-electric p-6 rounded-[2.5rem] text-white flex items-center justify-between gap-8 relative overflow-hidden group">
+        <div className="flex items-center gap-6 relative z-10">
+          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
+            <Brain className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-1">Strategic Deployment Briefing</p>
+            {isBriefingLoading ? (
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="text-sm font-medium italic text-white/40 ml-2">Advisor is analyzing current pipeline...</span>
+              </div>
+            ) : (
+              <p className="text-lg font-serif font-medium italic leading-tight">
+                {pipelineBriefing || "Initializing pipeline analysis for this mission..."}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex-shrink-0 relative z-10">
+           <button className="px-5 py-3 bg-white text-indigo-electric rounded-xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-indigo-900/20">
+             Optimize Flow
+           </button>
+        </div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+      </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
         {/* Candidates List */}
@@ -185,6 +250,42 @@ export default function CandidatesPage() {
                     <div className="flex gap-2">
                       <button className="p-3 bg-warm-gray rounded-full hover:bg-neutral-200 transition-all"><MessageSquare className="w-5 h-5" /></button>
                       <button className="p-3 bg-warm-gray rounded-full hover:bg-neutral-200 transition-all"><MoreHorizontal className="w-5 h-5" /></button>
+                    </div>
+                  </section>
+
+                  {/* AI Deep-Dive */}
+                  <section className="bg-gradient-to-br from-indigo-electric/5 to-white p-8 rounded-[2.5rem] border border-indigo-100/50 space-y-6">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-electric rounded-xl flex items-center justify-center">
+                           <Brain className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-electric">Advisor Deep-Dive</h4>
+                          <p className="text-[9px] font-bold text-midnight/30 uppercase tracking-widest">Autonomous Talent Analysis</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleGenerateCandidateAi(selectedCandidate)}
+                        disabled={isAiSummarizing}
+                        className="text-[9px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 hover:opacity-70 transition-all"
+                      >
+                        {isAiSummarizing ? 'Recalibrating...' : 'Refresh Insights'} <RotateCcw className={cn("w-3 h-3", isAiSummarizing && "animate-spin")} />
+                      </button>
+                    </div>
+                    
+                    <div className="prose prose-sm font-medium text-midnight/70 leading-relaxed italic">
+                      {isAiSummarizing ? (
+                        <div className="space-y-3">
+                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-full" />
+                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[90%]" />
+                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[75%]" />
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap">
+                          {candidateAiSummary || "Generating strategic profile intelligence..."}
+                        </div>
+                      )}
                     </div>
                   </section>
 

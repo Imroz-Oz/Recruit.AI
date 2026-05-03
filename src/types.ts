@@ -13,6 +13,7 @@ export type Page =
   | 'job-feed'
   | 'resume-vault'
   | 'interview-prep'
+  | 'privacy'
   | 'profile';
 
 export interface User {
@@ -25,6 +26,10 @@ export interface User {
   isCompanyUser?: boolean;
   selectedMode?: AppMode;
   linkedInConnected?: boolean;
+  title?: string;
+  bio?: string;
+  location?: string;
+  skills?: string[];
 }
 
 export type PipelineStage = 'sourcing' | 'submitted' | 'interviewing' | 'offer' | 'hired' | 'rejected';

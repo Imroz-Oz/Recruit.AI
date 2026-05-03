@@ -22,6 +22,8 @@ import {
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { cn } from '@/src/lib/utils';
+import { generateCandidateIntelligence } from '@/src/services/aiService';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface TalentArchivePageProps {
   onReverseMarket: (candidate: any) => void;
@@ -33,6 +35,8 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   useEffect(() => {
     fetchTalent();
@@ -85,11 +89,17 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
             gradYear: 2015 + Math.floor(Math.random() * 8),
             createdAt: serverTimestamp()
           };
-          const docRef = await addDoc(collection(db, 'candidates'), talent);
-          return { id: docRef.id, ...talent };
+          try {
+            const docRef = await addDoc(collection(db, 'candidates'), talent);
+            return { id: docRef.id, ...talent };
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, 'candidates');
+            return null;
+          }
         });
 
-      const newTalents = await Promise.all(uploadPromises);
+      const results = await Promise.all(uploadPromises);
+      const newTalents = results.filter(t => t !== null) as any[];
       if (newTalents.length < files.length) {
         console.log(`${files.length - newTalents.length} duplicates skipped.`);
       }
@@ -120,7 +130,13 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
       if (duplicatesToDelete.length > 0) {
         // Delete from Firestore
-        const deletePromises = duplicatesToDelete.map(id => deleteDoc(doc(db, 'candidates', id)));
+        const deletePromises = duplicatesToDelete.map(async (id) => {
+          try {
+            await deleteDoc(doc(db, 'candidates', id));
+          } catch (err) {
+            handleFirestoreError(err, OperationType.DELETE, `candidates/${id}`);
+          }
+        });
         await Promise.all(deletePromises);
         
         // Update local state
@@ -135,6 +151,13 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
     }
   };
 
+  const handleGenerateSummary = async (candidate: any) => {
+    setIsSummarizing(true);
+    const summary = await generateCandidateIntelligence(candidate);
+    if (summary) setAiSummary(summary);
+    setIsSummarizing(false);
+  };
+
   const filteredCandidates = candidates.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,10 +170,10 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-electric/5 rounded-full border border-indigo-100">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-electric" />
-            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Internal Talent HQ</span>
+            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Asset Repository</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Talent Archive</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Your Private, High-Fidelity Candidate Database</p>
+          <h2 className="text-4xl font-serif font-bold text-midnight italic">Library</h2>
+          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Private, High-Fidelity Talent Repository</p>
         </div>
         <div className="flex gap-4">
            <button 
@@ -301,7 +324,10 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                className="bg-white w-full max-w-2xl rounded-[3rem] p-12 shadow-2xl relative overflow-y-auto max-h-[90vh]"
             >
               <button 
-                onClick={() => setPreviewCandidate(null)}
+                onClick={() => {
+                  setPreviewCandidate(null);
+                  setAiSummary(null);
+                }}
                 className="absolute top-10 right-10 w-12 h-12 bg-warm-gray rounded-full flex items-center justify-center hover:bg-neutral-200 transition-all"
               >
                 <X className="w-6 h-6" />

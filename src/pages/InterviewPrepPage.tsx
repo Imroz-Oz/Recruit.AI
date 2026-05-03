@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Bot, 
@@ -12,20 +12,37 @@ import {
   Play,
   RotateCcw,
   Target,
-  BarChart3
+  BarChart3,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { generateInterviewQuestions } from '@/src/services/aiService';
 
 export default function InterviewPrepPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-
-  const questions = [
+  const [scenario] = useState('Senior Backend Lead');
+  const [questions, setQuestions] = useState<string[]>([
     "Tell me about a time you had to lead a cross-functional team through a technical disagreement.",
     "How do you approach scaling a React application for hundreds of thousands of concurrent users?",
     "Describe your most complex architectural decision and its long-term impact on the product.",
     "What's your strategy for maintaining high-quality code standards while meeting aggressive deadlines?"
-  ];
+  ]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const fetchQuestions = async () => {
+    setIsGenerating(true);
+    const aiQuestions = await generateInterviewQuestions(scenario);
+    if (aiQuestions && aiQuestions.length > 0) {
+      setQuestions(aiQuestions);
+    }
+    setIsGenerating(false);
+  };
+
+  useEffect(() => {
+    // Initial fetch if desired, but we have defaults
+  }, []);
 
   const toggleSession = () => setSessionStarted(!sessionStarted);
 
@@ -36,12 +53,12 @@ export default function InterviewPrepPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/5 border border-amber-100">
             <ShieldCheck className="w-4 h-4 text-amber-500" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500">
-              High-Fidelity Prep Protocol Active
+              Readiness Simulation Protocol
             </span>
           </div>
-          <h2 className="text-5xl font-serif font-bold text-midnight italic">AI Interview IQ Coach</h2>
+          <h2 className="text-5xl font-serif font-bold text-midnight italic">Readiness Engine</h2>
           <p className="text-midnight/50 font-medium max-w-xl italic">
-            Simulate high-pressure technical interviews with an AI agent trained on FAANG and top-tier startup screening logic.
+            Simulate elite-tier technical interviews with a Strategic Advisor trained on top-tier enterprise screening logic.
           </p>
         </div>
 
@@ -161,10 +178,20 @@ export default function InterviewPrepPage() {
         {/* Intelligence Sidebar */}
         <aside className="space-y-8">
           <div className="bg-white p-8 rounded-[3rem] border border-midnight/5 shadow-sm space-y-8">
-             <div className="space-y-2">
+              <div className="space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/20">Active Scenario</p>
-                <h4 className="text-2xl font-serif font-bold text-midnight italic">Senior Backend Lead</h4>
-             </div>
+                <div className="flex justify-between items-center">
+                  <h4 className="text-2xl font-serif font-bold text-midnight italic">{scenario}</h4>
+                  <button 
+                    onClick={fetchQuestions}
+                    disabled={isGenerating}
+                    className="p-2 hover:bg-neutral-100 rounded-lg transition-all"
+                    title="Generate New AI Questions"
+                  >
+                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin text-indigo-electric" /> : <RefreshCw className="w-4 h-4 text-midnight/40" />}
+                  </button>
+                </div>
+              </div>
              
              <div className="space-y-4">
                 <h5 className="text-[10px] font-bold uppercase tracking-[0.3em] text-midnight/20">Evaluation Matrix</h5>

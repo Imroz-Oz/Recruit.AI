@@ -30,7 +30,7 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.uid == request.auth.uid &&
              data.email is string &&
-             data.role in ['recruiter', 'candidate'];
+             data.role in ['agency', 'corp', 'freelancer', 'candidate', 'recruiter'];
     }
 
     // Validation Blueprints (Candidate)
@@ -48,8 +48,8 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && (
-        // Allow updating selectedMode
-        incoming().diff(existing()).affectedKeys().hasOnly(['selectedMode']) ||
+        // Allow updating profile fields
+        incoming().diff(existing()).affectedKeys().hasAny(['name', 'title', 'bio', 'location', 'skills', 'selectedMode', 'linkedInConnected']) ||
         isValidUser(incoming())
       );
 

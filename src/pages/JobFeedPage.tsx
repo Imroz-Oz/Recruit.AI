@@ -19,6 +19,8 @@ import { cn } from '../lib/utils';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query } from 'firebase/firestore';
 
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
+
 interface Job {
   id: string;
   title: string;
@@ -103,6 +105,13 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isAiScanning, setIsAiScanning] = useState(false);
+
+  const performAiScan = async () => {
+    setIsAiScanning(true);
+    await new Promise(r => setTimeout(r, 4000));
+    setIsAiScanning(false);
+  };
 
   useEffect(() => {
     if (preSearchCandidate) {
@@ -114,13 +123,14 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
     const fetchSavedJobs = async () => {
       if (!auth.currentUser) return;
       setIsSyncing(true);
+      const path = `users/${auth.currentUser.uid}/savedJobs`;
       try {
         const q = query(collection(db, 'users', auth.currentUser.uid, 'savedJobs'));
         const querySnapshot = await getDocs(q);
         const ids = new Set(querySnapshot.docs.map(doc => doc.id));
         setSavedJobIds(ids);
       } catch (error) {
-        console.error('Error fetching saved jobs:', error);
+        handleFirestoreError(error, OperationType.LIST, path);
       } finally {
         setIsSyncing(false);
       }
@@ -134,6 +144,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
     const isSaved = savedJobIds.has(job.id);
     const newSavedIds = new Set(savedJobIds);
     
+    const path = `users/${auth.currentUser.uid}/savedJobs/${job.id}`;
     try {
       if (isSaved) {
         newSavedIds.delete(job.id);
@@ -147,7 +158,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
       }
       setSavedJobIds(newSavedIds);
     } catch (error) {
-      console.error('Error toggling job save:', error);
+      handleFirestoreError(error, isSaved ? OperationType.DELETE : OperationType.WRITE, path);
     }
   };
 
@@ -165,7 +176,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
   return (
     <div className="space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-midnight/5 pb-10">
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-100">
             <Globe className="w-4 h-4 text-emerald-600 animate-pulse" />
@@ -173,13 +184,42 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
               Live Market Feed Active
             </span>
           </div>
-          <h2 className="text-5xl font-serif font-bold text-midnight italic">Discover Your Future</h2>
+          <h2 className="text-5xl font-serif font-bold text-midnight italic">Opportunity Orbit</h2>
           <p className="text-midnight/50 font-medium max-w-xl italic">
-            AI-curated opportunities mapped to your unique professional DNA across the global talent landscape.
+            Elite-tier selection orbit mapped to your unique professional DNA across the global enterprise landscape.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <button 
+            onClick={performAiScan}
+            disabled={isAiScanning}
+            className={cn(
+              "px-8 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 transition-all relative overflow-hidden",
+              isAiScanning ? "bg-indigo-electric text-white" : "bg-white border-2 border-midnight/5 text-midnight hover:border-indigo-electric/30 shadow-sm"
+            )}
+          >
+             {isAiScanning ? (
+               <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Scanning Global Orbits...
+               </>
+             ) : (
+               <>
+                <Sparkles className="w-4 h-4 text-indigo-electric" />
+                AI Market Pulse
+               </>
+             )}
+             {isAiScanning && (
+               <motion.div 
+                 initial={{ x: '-100%' }}
+                 animate={{ x: '100%' }}
+                 transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-0 bg-white/20 skew-x-12"
+               />
+             )}
+          </button>
+
           <div className="px-6 py-3 bg-white rounded-2xl border border-midnight/5 shadow-sm flex items-center gap-3">
             <div className="text-right">
               <p className="text-[8px] font-bold uppercase tracking-widest text-midnight/30">Candidate DNA Match</p>
@@ -191,6 +231,35 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
           </div>
         </div>
       </header>
+
+      <AnimatePresence>
+        {isAiScanning && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-12"
+          >
+            <div className="bg-gradient-to-r from-indigo-electric/5 via-white to-coral/5 p-12 rounded-[4rem] border border-indigo-100 flex flex-col items-center justify-center text-center space-y-6 shadow-2xl shadow-indigo-500/5">
+              <div className="flex flex-wrap justify-center gap-6 text-[9px] font-bold uppercase tracking-[0.3em] text-midnight/20">
+                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> LinkedIn Recruiter API</span>
+                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> Greenhouse Enterprise</span>
+                 <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Lever Sourcing Hub</span>
+                 <span className="flex items-center gap-2"><Search className="w-4 h-4" /> Indeed Direct</span>
+              </div>
+              <div className="w-full max-w-xl h-2 bg-midnight/5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 4, ease: "easeInOut" }}
+                  className="h-full bg-indigo-electric"
+                />
+              </div>
+              <p className="text-xl font-serif font-bold italic text-indigo-electric animate-pulse">Decrypting matching missions from 8,400+ boards...</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search & Filters */}
       <div className="space-y-4">

@@ -53,10 +53,10 @@ export default function PersonalIQPage() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-coral/5 rounded-full border border-coral/10">
             <Sparkles className="w-3.5 h-3.5 text-coral" />
-            <span className="text-[9px] font-bold text-coral uppercase tracking-[0.2em]">Personal Visibility Suite</span>
+            <span className="text-[9px] font-bold text-coral uppercase tracking-[0.2em]">Presence Lab Intelligence</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Profile OptIQ</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Master your market presence and recruiter reach</p>
+          <h2 className="text-4xl font-serif font-bold text-midnight italic">Presence Lab</h2>
+          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Master your elite market presence and executive reach</p>
         </div>
       </header>
 

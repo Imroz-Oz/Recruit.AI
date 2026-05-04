@@ -26,6 +26,7 @@ export interface User {
   isCompanyUser?: boolean;
   selectedMode?: AppMode;
   linkedInConnected?: boolean;
+  onboardingCompleted?: boolean;
   title?: string;
   bio?: string;
   location?: string;
@@ -112,8 +113,10 @@ export interface Job {
   description: string;
   requirements: string[];
   location: string;
+  salary?: string;
   postedDate: string;
   url?: string;
+  notes?: Note[];
 }
 
 export interface BooleanSearch {

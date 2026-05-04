@@ -43,10 +43,10 @@ const performanceData = [
 ];
 
 const sourceData = [
-  { name: 'LinkedIn', value: 45, color: '#2D44FF' },
-  { name: 'GitHub', value: 25, color: '#121212' },
-  { name: 'Referrals', value: 20, color: '#F43F5E' },
-  { name: 'Direct', value: 10, color: '#10B981' },
+  { name: 'LinkedIn', value: 45, color: '#8B5CF6' },
+  { name: 'GitHub', value: 25, color: '#06B6D4' },
+  { name: 'Referrals', value: 20, color: '#0A0A0B' },
+  { name: 'Direct', value: 10, color: '#E2E8F0' },
 ];
 
 const conversionData = [
@@ -91,10 +91,10 @@ export default function AnalyticsPage() {
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Placement Velocity', val: '12.4d', delta: '+15%', trend: 'up', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+          { label: 'Placement Velocity', val: '12.4d', delta: '+15%', trend: 'up', icon: Zap, color: 'text-violet', bg: 'bg-violet/10' },
           { label: 'Conversion Rate', val: '8.2%', delta: '+2.4%', trend: 'up', icon: Target, color: 'text-indigo-electric', bg: 'bg-indigo-electric/10' },
-          { label: 'Network Reach', val: '4.2k', delta: '-5%', trend: 'down', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-600/10' },
-          { label: 'Interviews/Offer', val: '3.8', delta: 'Valid', trend: 'neutral', icon: Clock, color: 'text-coral', bg: 'bg-coral/10' },
+          { label: 'Network Reach', val: '4.2k', delta: '-5%', trend: 'down', icon: Users, color: 'text-coral', bg: 'bg-coral/10' },
+          { label: 'Interviews/Offer', val: '3.8', delta: 'Valid', trend: 'neutral', icon: Clock, color: 'text-midnight', bg: 'bg-midnight/10' },
         ].map((stat, i) => (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -147,11 +147,11 @@ export default function AnalyticsPage() {
               <AreaChart data={performanceData}>
                 <defs>
                   <linearGradient id="colorPlacements" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2D44FF" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2D44FF" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis 
                   dataKey="month" 
                   axisLine={false} 
@@ -177,7 +177,7 @@ export default function AnalyticsPage() {
                 <Area 
                   type="monotone" 
                   dataKey="placements" 
-                  stroke="#2D44FF" 
+                  stroke="#8B5CF6" 
                   strokeWidth={4}
                   fillOpacity={1} 
                   fill="url(#colorPlacements)" 
@@ -185,9 +185,9 @@ export default function AnalyticsPage() {
                 <Area 
                   type="monotone" 
                   dataKey="interviews" 
-                  stroke="#2D44FF" 
+                  stroke="#06B6D4" 
                   strokeDasharray="8 8"
-                  strokeOpacity={0.3}
+                  strokeOpacity={0.4}
                   fill="transparent" 
                 />
               </AreaChart>

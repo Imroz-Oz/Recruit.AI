@@ -30,9 +30,9 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
       <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/5 border border-emerald-100">
-              <Sparkles className="w-4 h-4 text-emerald-600 fill-current" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 tracking-[0.2em]">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-coral/5 border border-coral/10">
+              <Sparkles className="w-4 h-4 text-coral fill-current" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-coral tracking-[0.2em]">
                 Career Intelligence active
               </span>
             </div>
@@ -54,12 +54,12 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Market DNA', value: '94%', color: 'text-emerald-600', icon: ShieldCheck },
-            { label: 'Portfolio Health', value: 'High', color: 'text-amber-500', icon: FileText },
-            { label: 'Pursuit Archive', value: '12', color: 'text-midnight', icon: Globe },
+            { label: 'Market DNA', value: '94%', color: 'text-indigo-electric', icon: ShieldCheck },
+            { label: 'Portfolio Health', value: 'High', color: 'text-coral', icon: FileText },
+            { label: 'Network Pulse', value: '12', color: 'text-midnight', icon: Globe },
             { label: 'Active Missions', value: '4 Active', color: 'text-indigo-electric', icon: Target }
           ].map((stat, i) => (
-            <div key={i} className="p-8 bg-white rounded-[2.5rem] border border-midnight/5 shadow-sm group hover:border-emerald-500/20 transition-all">
+            <div key={i} className="p-8 bg-white rounded-[2.5rem] border border-midnight/5 shadow-sm group hover:border-indigo-electric/20 transition-all font-sans">
                <stat.icon className={cn("w-6 h-6 mb-4", stat.color)} />
                <h3 className="text-3xl font-serif font-bold text-midnight">{stat.value}</h3>
                <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/20 mt-1">{stat.label}</p>
@@ -71,17 +71,17 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
           <motion.div
             whileHover={{ y: -8, scale: 1.01 }}
             onClick={() => onNavigatePage('job-feed')}
-            className="group cursor-pointer bg-white p-12 rounded-[4rem] border border-midnight/5 shadow-sm hover:shadow-2xl hover:shadow-emerald-500/10 transition-all relative overflow-hidden"
+            className="group cursor-pointer bg-white p-12 rounded-[4rem] border border-midnight/5 shadow-sm hover:shadow-2xl hover:shadow-indigo-electric/10 transition-all relative overflow-hidden"
           >
             <div className="relative z-10 flex flex-col h-full">
-              <div className="w-16 h-16 bg-emerald-600 text-white rounded-3xl flex items-center justify-center mb-10 shadow-xl shadow-emerald-100 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 bg-indigo-electric text-white rounded-3xl flex items-center justify-center mb-10 shadow-xl shadow-indigo-100 group-hover:scale-110 transition-transform">
                 <Globe className="w-8 h-8" />
               </div>
               <h3 className="text-4xl font-serif font-bold text-midnight mb-6 italic">Opportunity Orbit</h3>
               <p className="text-midnight/50 mb-10 leading-relaxed font-medium text-lg">Explore the live selection orbit synced with your unique market DNA and executive requirements.</p>
               
               <div className="mt-auto flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 group-hover:translate-x-2 transition-transform">
                   Launch Market Discovery <ArrowRight className="w-4 h-4" />
                 </span>
                 <div className="w-24 h-12 bg-warm-gray/10 rounded-full flex items-center justify-center">
@@ -98,14 +98,14 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
             className="group cursor-pointer bg-midnight p-12 rounded-[4rem] shadow-sm hover:shadow-2xl hover:shadow-black/20 transition-all relative overflow-hidden"
           >
             <div className="relative z-10 flex flex-col h-full text-white">
-              <div className="w-16 h-16 bg-amber-500 text-white rounded-3xl flex items-center justify-center mb-10 shadow-xl shadow-amber-500/20 group-hover:scale-110 transition-transform relative z-10">
+              <div className="w-16 h-16 bg-coral text-white rounded-3xl flex items-center justify-center mb-10 shadow-xl shadow-coral/20 group-hover:scale-110 transition-transform relative z-10">
                 <Sparkles className="w-8 h-8" />
               </div>
               <h3 className="text-4xl font-serif font-bold mb-6 italic uppercase tracking-tight text-white">Portfolio Engine</h3>
               <p className="text-white/40 mb-10 leading-relaxed font-medium text-lg italic">Calibrate your professional assets to bypass enterprise filters and match elite recruitment logic.</p>
               
               <div className="mt-auto flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-coral flex items-center gap-2 group-hover:translate-x-2 transition-transform">
                   Engineer Assets <ArrowRight className="w-4 h-4" />
                 </span>
                 <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center">
@@ -121,8 +121,8 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
           <h4 className="text-center text-[11px] font-bold uppercase tracking-[0.4em] text-midnight/20">Executive Readiness Center</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Readiness Engine', icon: ShieldCheck, page: 'interview-prep' as Page, color: 'hover:bg-emerald-50' },
-              { label: 'Orbit Intelligence', icon: Globe, page: 'job-feed' as Page, color: 'hover:bg-amber-50' },
+              { label: 'Readiness Engine', icon: ShieldCheck, page: 'interview-prep' as Page, color: 'hover:bg-violet/5' },
+              { label: 'Orbit Intelligence', icon: Globe, page: 'job-feed' as Page, color: 'hover:bg-coral/5' },
               { label: 'Asset Design', icon: FileText, page: 'resume-vault' as Page, color: 'hover:bg-indigo-50' },
               { label: 'Market Scout', icon: Target, page: 'job-feed' as Page, color: 'hover:bg-purple-50' }
             ].map((action, i) => (
@@ -214,7 +214,7 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode }:
           {[
             { label: 'Engagement Flow', icon: Users, page: 'candidates' as Page, color: 'hover:bg-indigo-50' },
             { label: 'Orbit Selection', icon: Sparkles, page: 'network' as Page, color: 'hover:bg-coral/5' },
-            { label: 'Legacy Records', icon: Globe, page: 'history' as Page, color: 'hover:bg-emerald-50' },
+            { label: 'Performance Analytics', icon: Globe, page: 'history' as Page, color: 'hover:bg-violet/5' },
             { label: 'Mission Briefs', icon: Plus, page: 'postings' as Page, color: 'hover:bg-purple-50' }
           ].map((action, i) => (
             <button 

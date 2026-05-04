@@ -4,27 +4,19 @@ import {
   Users, 
   ChevronRight, 
   MoreHorizontal, 
-  Calendar, 
-  DollarSign, 
   Building2, 
-  FileText,
-  Clock,
+  Globe, 
+  Brain, 
+  Search,
   CheckCircle2,
-  XCircle,
-  MessageSquare,
-  Lock,
-  Globe,
-  User,
-  Zap,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-  Brain,
-  RotateCcw
+  Filter,
+  X
 } from 'lucide-react';
-import { Candidate, PipelineStage, SubmissionDetails, Note } from '@/src/types';
+import { Candidate, PipelineStage } from '@/src/types';
 import { cn } from '@/src/lib/utils';
-import { generatePipelineBriefing, generateCandidateIntelligence } from '@/src/services/aiService';
+import { generatePipelineBriefing } from '@/src/services/aiService';
+import CandidateDetailModal from '@/src/components/CandidateDetailModal';
+import CandidateFilterModal from '@/src/components/CandidateFilterModal';
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([
@@ -62,12 +54,11 @@ export default function CandidatesPage() {
   ]);
 
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [isNotePrivate, setIsNotePrivate] = useState(true);
-  const [noteText, setNoteText] = useState('');
   const [pipelineBriefing, setPipelineBriefing] = useState<string | null>(null);
   const [isBriefingLoading, setIsBriefingLoading] = useState(false);
-  const [candidateAiSummary, setCandidateAiSummary] = useState<string | null>(null);
-  const [isAiSummarizing, setIsAiSummarizing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>(null);
 
   useEffect(() => {
     const fetchBriefing = async () => {
@@ -79,337 +70,182 @@ export default function CandidatesPage() {
     fetchBriefing();
   }, []);
 
-  useEffect(() => {
-    if (selectedCandidate) {
-      setCandidateAiSummary(null);
-      handleGenerateCandidateAi(selectedCandidate);
-    }
-  }, [selectedCandidate?.id]);
-
-  const handleGenerateCandidateAi = async (candidate: Candidate) => {
-    setIsAiSummarizing(true);
-    const summary = await generateCandidateIntelligence(candidate);
-    setCandidateAiSummary(summary);
-    setIsAiSummarizing(false);
-  };
-
   const stages: { id: PipelineStage; label: string; color: string }[] = [
     { id: 'sourcing', label: 'Sourcing', color: 'bg-neutral-100 text-neutral-500' },
-    { id: 'submitted', label: 'Submitted to Client', color: 'bg-indigo-50 text-indigo-600' },
+    { id: 'submitted', label: 'Submitted', color: 'bg-indigo-50 text-indigo-600' },
     { id: 'interviewing', label: 'Interviewing', color: 'bg-amber-50 text-amber-600' },
     { id: 'offer', label: 'Offer Stage', color: 'bg-emerald-50 text-emerald-600' },
+    { id: 'hired', label: 'Hired', color: 'bg-indigo-electric text-white' },
     { id: 'rejected', label: 'Rejected', color: 'bg-red-50 text-red-600' }
   ];
 
-  const handleMoveStage = (candidateId: string, nextStage: PipelineStage) => {
-    setSelectedCandidate(prev => {
-      if (prev?.id === candidateId) {
-        return { ...prev, stage: nextStage };
-      }
-      return prev;
-    });
-    setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, stage: nextStage } : c));
+  const handleUpdateCandidate = (updated: Candidate) => {
+    setCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
+    setSelectedCandidate(updated);
   };
 
-  const addNote = () => {
-    if (!selectedCandidate || !noteText.trim()) return;
-    const newNote: Note = {
-      id: Date.now().toString(),
-      authorId: 'me',
-      text: noteText,
-      isPrivate: isNotePrivate,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    const updated = { ...selectedCandidate, notes: [newNote, ...selectedCandidate.notes] };
-    setSelectedCandidate(updated);
-    setCandidates(prev => prev.map(c => c.id === selectedCandidate.id ? updated : c));
-    setNoteText('');
-  };
+  const filteredCandidates = candidates.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         c.title.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!activeFilters) return matchesSearch;
+
+    const matchesStage = activeFilters.stage === 'all' || c.stage === activeFilters.stage;
+    const matchesLocation = !activeFilters.location || c.location.toLowerCase().includes(activeFilters.location.toLowerCase());
+    const matchesExp = !activeFilters.minExp || c.experience >= parseInt(activeFilters.minExp);
+    const matchesInternal = !activeFilters.isInternal || c.isInternal;
+
+    return matchesSearch && matchesStage && matchesLocation && matchesExp && matchesInternal;
+  });
 
   return (
-    <div className="h-full flex flex-col space-y-8 animate-in fade-in duration-500">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Engagement Flow</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest mt-2">Manage executive submissions, high-tier interviews, and offer cycles</p>
+    <div className="h-full space-y-12 animate-in fade-in duration-700 pb-20">
+      <header className="flex justify-between items-end border-b border-midnight/5 pb-10">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-electric/5 border border-indigo-electric/10 rounded-full">
+            <Users className="w-4 h-4 text-indigo-electric" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-electric">
+              Recruiter Sourcing Loop
+            </span>
+          </div>
+          <h2 className="text-5xl font-serif font-bold text-midnight italic">Engagement <span className="text-indigo-electric">Flow.</span></h2>
+          <p className="text-midnight/40 text-sm font-medium max-w-lg leading-relaxed">
+            Manage your internal talent pipeline with mission-critical intelligence and real-time mission status.
+          </p>
         </div>
-        <div className="flex gap-4">
-          <button className="px-6 py-2.5 bg-midnight text-white rounded-full font-bold text-xs uppercase tracking-widest shadow-xl shadow-midnight/10">
-            Export Tracker
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsFilterModalOpen(true)}
+            className="px-6 py-3 bg-white border border-midnight/5 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-midnight hover:border-indigo-electric/30 transition-all flex items-center gap-3 shadow-sm"
+          >
+            <Filter className={cn("w-4 h-4 text-midnight/20", activeFilters && "text-coral")} /> Advanced Filter
+          </button>
+          <button className="px-8 py-3 bg-midnight text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-midnight/10 hover:bg-indigo-electric transition-all">
+            Export Active Pipeline
           </button>
         </div>
       </header>
 
       {/* AI Pipeline Briefing */}
-      <div className="bg-indigo-electric p-6 rounded-[2.5rem] text-white flex items-center justify-between gap-8 relative overflow-hidden group">
-        <div className="flex items-center gap-6 relative z-10">
-          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
-            <Brain className="w-7 h-7 text-white" />
+      <div className="bg-midnight p-10 rounded-[3.5rem] text-white flex items-center justify-between gap-12 relative overflow-hidden group shadow-2xl">
+        <div className="flex items-center gap-8 relative z-10">
+          <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-xl border border-white/10">
+            <Brain className="w-8 h-8 text-white" />
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-1">Strategic Deployment Briefing</p>
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Strategic Pipeline Briefing</p>
             {isBriefingLoading ? (
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="text-sm font-medium italic text-white/40 ml-2">Advisor is analyzing current pipeline...</span>
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 bg-indigo-electric rounded-full animate-bounce" />
+                <span className="text-lg font-serif italic text-white/40">Advisor is analyzing current pipeline...</span>
               </div>
             ) : (
-              <p className="text-lg font-serif font-medium italic leading-tight">
-                {pipelineBriefing || "Initializing pipeline analysis for this mission..."}
+              <p className="text-2xl font-serif font-bold italic leading-tight text-white/90">
+                {pipelineBriefing || "Initializing deployment intelligence for your active missions..."}
               </p>
             )}
           </div>
         </div>
         <div className="flex-shrink-0 relative z-10">
-           <button className="px-5 py-3 bg-white text-indigo-electric rounded-xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-indigo-900/20">
-             Optimize Flow
+           <button className="px-6 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all border border-white/5 backdrop-blur-md">
+             Optimize Workflow
            </button>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-electric/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
-        {/* Candidates List */}
-        <div className="lg:col-span-1 bg-white rounded-[3rem] border border-midnight/5 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-midnight/5 bg-warm-gray/30">
-             <div className="relative">
-              <input 
-                placeholder="Filter pipeline..." 
-                className="w-full pl-10 pr-4 py-3 bg-white rounded-2xl text-[10px] font-bold uppercase tracking-widest border border-midnight/5 outline-none focus:border-indigo-electric/40"
-              />
-              <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
-             {candidates.map(candidate => (
-               <div 
-                 key={candidate.id}
-                 onClick={() => setSelectedCandidate(candidate)}
-                 className={cn(
-                   "p-5 rounded-2xl border transition-all cursor-pointer group",
-                   selectedCandidate?.id === candidate.id 
-                    ? "bg-midnight text-white border-midnight shadow-xl" 
-                    : "bg-white border-midnight/5 hover:border-indigo-electric/20"
-                 )}
-               >
-                 <div className="flex justify-between items-start mb-2">
-                   <h4 className="font-serif font-bold italic">{candidate.name}</h4>
-                   <span className={cn(
-                     "text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full",
-                     stages.find(s => s.id === candidate.stage)?.color
-                   )}>
-                     {stages.find(s => s.id === candidate.stage)?.label}
-                   </span>
-                 </div>
-                 <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-4", selectedCandidate?.id === candidate.id ? "text-white/60" : "text-midnight/40")}>
-                   {candidate.title}
-                 </p>
-                 <div className="flex items-center gap-3">
-                   {candidate.submissionDetails?.clientName && (
-                     <div className="flex items-center gap-1.5">
-                       <Building2 className="w-3 h-3 opacity-30" />
-                       <span className="text-[9px] font-bold">{candidate.submissionDetails.clientName}</span>
-                     </div>
-                   )}
-                   <div className="flex-1" />
-                   <ChevronRight className="w-4 h-4 opacity-10 group-hover:opacity-100 transition-all" />
-                 </div>
-               </div>
-             ))}
-          </div>
+      {/* Controls */}
+        <div className="flex gap-4 items-center">
+        <div className="relative flex-1">
+          <input 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search within your mission pipeline..." 
+            className="w-full pl-14 pr-6 py-5 bg-white rounded-3xl text-sm font-medium border border-midnight/5 outline-none focus:border-indigo-electric/40 shadow-sm transition-all"
+          />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
         </div>
+        
+        {activeFilters && (
+          <button 
+            onClick={() => setActiveFilters(null)}
+            className="px-4 py-2 bg-coral/10 text-coral rounded-full text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-coral/20 transition-all"
+          >
+            Clear Constraints <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
 
-        {/* Candidate Detail View */}
-        <div className="lg:col-span-2 space-y-8 flex flex-col min-h-0">
-          <AnimatePresence mode="wait">
-            {selectedCandidate ? (
-              <motion.div 
-                key={selectedCandidate.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="flex flex-col flex-1 space-y-8 min-h-0"
-              >
-                <div className="bg-white p-10 rounded-[3.5rem] border border-midnight/5 shadow-sm space-y-10 overflow-y-auto scrollbar-hide">
-                  <section className="flex justify-between items-start">
-                    <div className="flex gap-6">
-                      <div className="w-20 h-20 bg-indigo-electric text-white rounded-3xl flex items-center justify-center font-serif font-bold text-3xl italic shadow-2xl shadow-indigo-500/20">
-                        {selectedCandidate.name[0]}
-                      </div>
-                      <div>
-                        <h3 className="text-3xl font-serif font-bold text-midnight italic">{selectedCandidate.name}</h3>
-                        <p className="text-indigo-electric font-bold text-xs uppercase tracking-widest mt-1">{selectedCandidate.title}</p>
-                        <div className="flex gap-4 mt-4 text-[10px] font-bold text-midnight/40 uppercase tracking-widest">
-                          <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> {selectedCandidate.location}</span>
-                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {selectedCandidate.experience} Years Exp</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="p-3 bg-warm-gray rounded-full hover:bg-neutral-200 transition-all"><MessageSquare className="w-5 h-5" /></button>
-                      <button className="p-3 bg-warm-gray rounded-full hover:bg-neutral-200 transition-all"><MoreHorizontal className="w-5 h-5" /></button>
-                    </div>
-                  </section>
-
-                  {/* AI Deep-Dive */}
-                  <section className="bg-gradient-to-br from-indigo-electric/5 to-white p-8 rounded-[2.5rem] border border-indigo-100/50 space-y-6">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-electric rounded-xl flex items-center justify-center">
-                           <Brain className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-electric">Advisor Deep-Dive</h4>
-                          <p className="text-[9px] font-bold text-midnight/30 uppercase tracking-widest">Autonomous Talent Analysis</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => handleGenerateCandidateAi(selectedCandidate)}
-                        disabled={isAiSummarizing}
-                        className="text-[9px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 hover:opacity-70 transition-all"
-                      >
-                        {isAiSummarizing ? 'Recalibrating...' : 'Refresh Insights'} <RotateCcw className={cn("w-3 h-3", isAiSummarizing && "animate-spin")} />
-                      </button>
-                    </div>
-                    
-                    <div className="prose prose-sm font-medium text-midnight/70 leading-relaxed italic">
-                      {isAiSummarizing ? (
-                        <div className="space-y-3">
-                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-full" />
-                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[90%]" />
-                          <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[75%]" />
-                        </div>
-                      ) : (
-                        <div className="whitespace-pre-wrap">
-                          {candidateAiSummary || "Generating strategic profile intelligence..."}
-                        </div>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {stages.filter(s => s.id !== 'rejected').map(stage => {
-                      const isActive = selectedCandidate.stage === stage.id;
-                      return (
-                        <button 
-                          key={stage.id}
-                          onClick={() => handleMoveStage(selectedCandidate.id, stage.id)}
-                          className={cn(
-                            "p-4 rounded-2xl border text-center transition-all flex flex-col items-center gap-2",
-                            isActive 
-                              ? "bg-midnight text-white border-midnight shadow-lg" 
-                              : "bg-white text-midnight/40 border-midnight/5 hover:border-indigo-electric"
-                          )}
-                        >
-                          {isActive ? <CheckCircle2 className="w-5 h-5 text-indigo-400" /> : <div className="w-5 h-5 rounded-full border-2 border-midnight/10" />}
-                          <span className="text-[9px] font-bold uppercase tracking-widest">{stage.label}</span>
-                        </button>
-                      );
-                    })}
-                  </section>
-
-                  {/* Submission Specifics */}
-                  {(selectedCandidate.stage !== 'sourcing') && (
-                    <section className="bg-warm-gray/30 p-8 rounded-[2.5rem] border border-midnight/5 space-y-6">
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-midnight mb-6 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-emerald-500" /> Submission Intelligence
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest">Client Name</label>
-                          <p className="text-sm font-bold">{selectedCandidate.submissionDetails?.clientName || '---'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest">Job ID</label>
-                          <p className="text-sm font-bold">{selectedCandidate.submissionDetails?.jobId || '---'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest">Pay Rate</label>
-                          <p className="text-sm font-bold">{selectedCandidate.submissionDetails?.payRate || '---'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest">Bill Rate / Margin</label>
-                          <p className="text-sm font-bold text-indigo-600">{selectedCandidate.submissionDetails?.billRate || 'Direct'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest">Assignment Start</label>
-                          <p className="text-sm font-bold text-emerald-600 flex items-center gap-1.5 italic">
-                            <Calendar className="w-3.5 h-3.5" /> {selectedCandidate.submissionDetails?.startDate || 'TBD'}
-                          </p>
-                        </div>
-                      </div>
-                      <button className="w-full py-3 bg-white border border-midnight/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-midnight/40 hover:text-midnight transition-colors">
-                        Update Submission Details
-                      </button>
-                    </section>
-                  )}
-
-                  {/* Notes & Activity */}
-                  <section className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-midnight flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-indigo-400" /> Recruiter Log
-                      </h4>
-                      <div className="flex gap-2">
-                         <button 
-                          onClick={() => setIsNotePrivate(!isNotePrivate)}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all",
-                            isNotePrivate ? "bg-midnight text-white" : "bg-neutral-100 text-midnight/40"
-                          )}
-                        >
-                          {isNotePrivate ? <Lock className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                          {isNotePrivate ? 'Private' : 'Company Public'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <textarea
-                          placeholder="Add details about pay, geo-preference, shift needs, or interview feedback..."
-                          value={noteText}
-                          onChange={(e) => setNoteText(e.target.value)}
-                          className="w-full p-6 bg-warm-gray border border-transparent rounded-[2rem] focus:bg-white focus:border-indigo-electric/20 outline-none transition-all text-sm font-medium h-24"
-                        />
-                        <button 
-                          onClick={addNote}
-                          className="absolute bottom-4 right-4 bg-midnight text-white px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-electric transition-all"
-                        >
-                          Save Note
-                        </button>
-                      </div>
-                      <div className="space-y-4 pt-4">
-                        {selectedCandidate.notes.map(note => (
-                          <div key={note.id} className="p-5 bg-white border border-midnight/5 rounded-[2rem] relative shadow-sm">
-                             <div className="flex justify-between items-start mb-3">
-                               <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center">
-                                    <User className="w-3.5 h-3.5 text-midnight/40" />
-                                  </div>
-                                  <span className="text-[9px] font-bold text-midnight uppercase tracking-wider">You • {note.timestamp}</span>
-                               </div>
-                               {note.isPrivate && <Lock className="w-3 h-3 text-midnight/20" />}
-                             </div>
-                             <p className="text-sm text-midnight/70 leading-relaxed font-medium">{note.text}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </section>
+      {/* Grid of Candidates */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredCandidates.map(candidate => (
+          <motion.div 
+            key={candidate.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => setSelectedCandidate(candidate)}
+            className="bg-white p-8 rounded-[3rem] border border-midnight/5 shadow-sm hover:shadow-2xl hover:shadow-midnight/5 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="space-y-6">
+              <div className="flex justify-between items-start">
+                <div className="w-14 h-14 bg-indigo-electric/10 text-indigo-electric rounded-2xl flex items-center justify-center font-serif font-bold text-xl italic group-hover:bg-indigo-electric group-hover:text-white transition-all">
+                  {candidate.name[0]}
                 </div>
-              </motion.div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-center opacity-30 select-none">
-                <Users className="w-20 h-20 mb-6" />
-                <h3 className="text-2xl font-serif font-bold italic">Select a Candidate</h3>
-                <p className="text-sm font-medium mt-2">Choose a profile from the pipeline to manage their matching intelligence and submission workflow.</p>
+                <div className={cn(
+                  "px-3 py-1 bg-neutral-100 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                  stages.find(s => s.id === candidate.stage)?.color
+                )}>
+                  {stages.find(s => s.id === candidate.stage)?.label}
+                </div>
               </div>
-            )}
-          </AnimatePresence>
-        </div>
+              
+              <div>
+                <h4 className="text-2xl font-serif font-bold text-midnight italic group-hover:text-indigo-electric transition-colors">{candidate.name}</h4>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 mt-1">{candidate.title}</p>
+              </div>
+
+              <div className="space-y-3 pt-4">
+                <div className="flex items-center gap-3 text-xs font-medium text-midnight/60">
+                   <Building2 className="w-4 h-4 text-midnight/20" />
+                   {candidate.submissionDetails?.clientName || "Open Candidate"}
+                </div>
+                <div className="flex items-center gap-3 text-xs font-medium text-midnight/60">
+                   <Globe className="w-4 h-4 text-midnight/20" />
+                   {candidate.location}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-midnight/5 flex justify-between items-center">
+               <div className="flex -space-x-2">
+                 {[1, 2, 3].map(i => (
+                   <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-warm-gray text-[8px] flex items-center justify-center font-bold">AI</div>
+                 ))}
+               </div>
+               <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                 View Dossier <ChevronRight className="w-3.5 h-3.5" />
+               </span>
+            </div>
+          </motion.div>
+        ))}
       </div>
+
+      {/* Candidate Detail Modal */}
+      <AnimatePresence>
+        {selectedCandidate && (
+          <CandidateDetailModal 
+            candidate={selectedCandidate} 
+            onClose={() => setSelectedCandidate(null)}
+            onUpdate={handleUpdateCandidate}
+          />
+        )}
+      </AnimatePresence>
+
+      <CandidateFilterModal 
+        isOpen={isFilterModalOpen} 
+        onClose={() => setIsFilterModalOpen(false)}
+        onApply={setActiveFilters}
+      />
     </div>
   );
 }

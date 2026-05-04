@@ -42,6 +42,12 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
+    if (user?.linkedInConnected !== undefined) {
+      setIsLinkedInConnected(user.linkedInConnected);
+    }
+  }, [user]);
+
+  useEffect(() => {
     const handleLocation = () => {
       if (window.location.hash === '#/privacy') {
         setCurrentPage('privacy');
@@ -99,7 +105,8 @@ export default function App() {
             title: profile.title,
             bio: profile.bio,
             location: profile.location,
-            skills: profile.skills
+            skills: profile.skills,
+            onboardingCompleted: profile.onboardingCompleted
           };
         } else {
           // Initialize user in Firestore
@@ -139,7 +146,14 @@ export default function App() {
         }
         setUser(userData);
       } else {
-        setUser(null);
+        // Check for Demo/LinkedIn Session
+        const isDemo = localStorage.getItem('isDemoLoggedIn') === 'true';
+        const demoUserJson = localStorage.getItem('demoUser');
+        if (isDemo && demoUserJson) {
+          setUser(JSON.parse(demoUserJson));
+        } else {
+          setUser(null);
+        }
       }
       setLoading(false);
     });
@@ -147,8 +161,28 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = (email: string) => {
-    // This is now handled by onAuthStateChanged after signInWithPopup in AuthPage
+  const handleLogin = (email: string, linkedinProfile?: any) => {
+    const isCompany = email.includes('@agency.com') || email.includes('@corp.com') || email.includes('.ai') || linkedinProfile;
+    const role = isCompany ? 'corp' : 'candidate';
+    
+    const userData: User = {
+      id: linkedinProfile?.id || `demo-${Date.now()}`,
+      email: email,
+      name: linkedinProfile?.name || email.split('@')[0] || 'User',
+      isLoggedIn: true,
+      role: role as 'corp' | 'candidate',
+      isCompanyUser: (role === 'corp'),
+      onboardingCompleted: true, // Mark as completed for LinkedIn users to jump straight in
+      selectedMode: isCompany ? 'recruiter' : 'hunter'
+    };
+
+    setUser(userData);
+    if (linkedinProfile) {
+      setIsLinkedInConnected(true);
+      localStorage.setItem('linkedinProfile', JSON.stringify(linkedinProfile));
+    }
+    localStorage.setItem('isDemoLoggedIn', 'true');
+    localStorage.setItem('demoUser', JSON.stringify(userData));
   };
 
   const handleSelectAppMode = async (mode: AppMode) => {
@@ -253,8 +287,8 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex min-h-screen selection:bg-indigo-electric/30",
-      user.selectedMode === 'recruiter' ? 'bg-cream' : 'bg-warm-gray/20'
+      "flex min-h-screen selection:bg-violet/30",
+      user.selectedMode === 'recruiter' ? 'bg-cream' : 'bg-slate-50'
     )}>
       <Sidebar 
         currentPage={currentPage} 
@@ -294,9 +328,9 @@ export default function App() {
         {/* Floating Copilot Trigger */}
         <button 
           onClick={() => setCurrentPage('assistant')}
-          className="fixed bottom-10 right-10 w-16 h-16 bg-indigo-electric text-white rounded-2xl shadow-2xl shadow-indigo-500/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group overflow-hidden"
+          className="fixed bottom-10 right-10 w-16 h-16 bg-indigo-electric text-white rounded-3xl shadow-2xl shadow-indigo-electric/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group overflow-hidden border border-white/20"
         >
-          <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform" />
+          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
           <Bot className="w-8 h-8 relative z-10" />
         </button>
       </main>

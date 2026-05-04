@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, Sparkles, ShieldCheck, Loader2, ArrowRight, Brain, Globe, Target, Zap, User, Rocket } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
+import BrandLogo from '@/src/components/BrandLogo';
 
 interface AuthPageProps {
   onLogin: (email: string) => void;
@@ -50,25 +51,56 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
     setError(null);
     setIsLoading(true);
     try {
-      const provider = new OAuthProvider('linkedin.com');
-      // Adding scopes to get full profile and email
-      provider.addScope('r_liteprofile');
-      provider.addScope('r_emailaddress');
-      
-      const result = await signInWithPopup(auth, provider);
-      if (result.user?.email) {
-        onLogin(result.user.email);
+      const response = await fetch('/api/auth/linkedin/url');
+      if (!response.ok) throw new Error('Failed to get LinkedIn Auth URL');
+      const { url } = await response.json();
+
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const authWindow = window.open(
+        url,
+        'LinkedIn Auth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      if (!authWindow) {
+        setIsLoading(false);
+        setError('Popup blocked. Please enable popups to connect LinkedIn.');
+        return;
       }
+
+      // Listen for the success message from the popup
+      const handleMessage = (event: MessageEvent) => {
+        // Log all messages in dev for diagnostic purposes
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[LinkedIn Auth] Received Message:', event.data);
+        }
+
+        if (event.data?.type === 'LINKEDIN_AUTH_SUCCESS' && event.data.profile) {
+          const profile = event.data.profile;
+          window.removeEventListener('message', handleMessage);
+          
+          if (profile.email) {
+            onLogin(profile.email, profile);
+          } else {
+            setError('LinkedIn login successful, but no email was returned.');
+            setIsLoading(false);
+          }
+        } else if (event.data?.type === 'LINKEDIN_AUTH_ERROR') {
+          window.removeEventListener('message', handleMessage);
+          setError(`LinkedIn Error: ${event.data.error || 'Authentication failed'}`);
+          setIsLoading(false);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
     } catch (err: any) {
-      if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user') {
-        process.env.NODE_ENV === 'development' && console.log('LinkedIn Login cancelled');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('LinkedIn Login is not yet configured in the dashboard. Please check your Firebase settings.');
-      } else {
-        console.error(err);
-        setError(err.message || 'Failed to sign in with LinkedIn');
-      }
-    } finally {
+      console.error(err);
+      setError(err.message || 'Failed to initiate LinkedIn connection');
       setIsLoading(false);
     }
   };
@@ -78,9 +110,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       {/* Navigation */}
       <nav className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center max-w-7xl mx-auto z-10 w-full">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-midnight rounded-xl flex items-center justify-center shadow-lg shadow-midnight/20">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
+          <BrandLogo className="w-10 h-10 text-midnight" />
           <span className="text-xl font-serif font-bold tracking-tight italic">Recruit AI</span>
         </div>
         <div className="hidden md:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-midnight/60">
@@ -108,7 +138,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-serif font-bold leading-[1.1] tracking-tight">
-              Elite Intelligence for the <br /><span className="italic text-indigo-electric">Modern Workforce</span>
+              Elite Intelligence for the <br /><span className="italic text-violet">Modern Workforce</span>
             </h1>
             
             <p className="text-lg md:text-xl text-midnight/60 leading-relaxed max-w-lg mb-8">
@@ -135,10 +165,10 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="relative"
           >
-            <div className="absolute inset-0 bg-indigo-electric/10 blur-3xl rounded-full transform -rotate-12 translate-x-10 scale-110" />
+            <div className="absolute inset-0 bg-violet/10 blur-3xl rounded-full transform -rotate-12 translate-x-10 scale-110" />
             
             {/* Auth Card */}
-             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3rem] shadow-2xl shadow-indigo-900/5 flex flex-col relative z-10 border border-midnight/5 min-h-[440px]">
+             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3rem] shadow-2xl shadow-violet/5 flex flex-col relative z-10 border border-midnight/5 min-h-[440px]">
               
               <AnimatePresence mode="wait">
                 {!intendedRole ? (
@@ -160,16 +190,16 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                     <div className="space-y-4">
                       <button 
                         onClick={() => handleRoleSelect('recruiter')}
-                        className="w-full p-6 text-left border-2 border-warm-gray rounded-3xl hover:border-indigo-electric/30 hover:bg-indigo-electric/5 transition-all group flex items-center justify-between"
+                        className="w-full p-6 text-left border-2 border-warm-gray rounded-3xl hover:border-violet/30 hover:bg-violet/5 transition-all group flex items-center justify-between"
                       >
                          <div>
                            <div className="flex items-center gap-2 mb-1">
-                             <Target className="w-5 h-5 text-indigo-electric group-hover:scale-110 transition-transform" />
+                             <Target className="w-5 h-5 text-violet group-hover:scale-110 transition-transform" />
                              <span className="font-bold text-sm text-midnight uppercase tracking-widest">Building a Team</span>
                            </div>
                            <p className="text-xs font-medium text-midnight/50 italic">Scout and secure elite talent</p>
                          </div>
-                         <ArrowRight className="w-5 h-5 text-midnight/20 group-hover:text-indigo-electric group-hover:translate-x-1 transition-all" />
+                         <ArrowRight className="w-5 h-5 text-midnight/20 group-hover:text-violet group-hover:translate-x-1 transition-all" />
                       </button>
 
                       <button 
@@ -263,7 +293,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <section id="about" className="py-24 bg-white border-t border-midnight/5 relative">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-indigo-electric">About Recruit AI</h2>
+            <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-violet">About Recruit AI</h2>
             <h3 className="text-4xl md:text-5xl font-serif font-bold italic leading-tight">Elevating Human Potential through Machine Precision</h3>
             <p className="text-xl text-midnight/60 leading-relaxed font-medium">
               We built Recruit AI to bridge the gap between extraordinary talent and visionary enterprises. 
@@ -305,7 +335,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <section id="security" className="py-24 bg-midnight text-white text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20" />
         <div className="max-w-3xl mx-auto px-6 lg:px-8 relative z-10 space-y-8">
-           <ShieldCheck className="w-16 h-16 text-indigo-400 mx-auto" />
+           <ShieldCheck className="w-16 h-16 text-violet mx-auto" />
            <h3 className="text-4xl font-serif font-bold italic">Enterprise Grade Security</h3>
            <p className="text-xl text-white/50 leading-relaxed">
              Your data infrastructure is fortified. We utilize state-of-the-art encryption, zero-retention AI protocols, and strict RBAC controls to ensure your talent repository remains absolutely secure.

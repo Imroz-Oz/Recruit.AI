@@ -23,6 +23,7 @@ import { Page, AppMode } from '@/src/types';
 
 import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
+import BrandLogo from './BrandLogo';
 
 interface SidebarProps {
   currentPage: Page;
@@ -80,17 +81,15 @@ export default function Sidebar({
     <div className={cn(
       "h-screen text-white flex flex-col fixed left-0 top-0 z-50 transition-all duration-500 overflow-y-auto scrollbar-hide",
       isCollapsed ? "w-20" : "w-64",
-      appMode === 'recruiter' ? "bg-midnight" : "bg-emerald-950 shadow-2xl shadow-emerald-950/40"
+      appMode === 'recruiter' ? "bg-midnight shadow-2xl shadow-black/40" : "bg-midnight/95 backdrop-blur-xl border-r border-white/5"
     )}>
       <div className={cn("p-8", isCollapsed && "px-4")}>
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-all shrink-0",
-              appMode === 'recruiter' ? "bg-indigo-electric shadow-indigo-500/20" : "bg-amber-500 shadow-amber-500/20"
-            )}>
-              <span className="text-white font-serif font-bold text-xl italic">{appMode === 'recruiter' ? 'AI' : 'AI'}</span>
-            </div>
+            <BrandLogo className={cn(
+              "w-10 h-10 transition-all shrink-0",
+              appMode === 'recruiter' ? "text-indigo-electric" : "text-coral"
+            )} />
             {!isCollapsed && (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                 <h1 className="text-xl font-serif font-bold tracking-tight leading-none text-white whitespace-nowrap">
@@ -98,7 +97,7 @@ export default function Sidebar({
                 </h1>
                 <span className={cn(
                   "text-[8px] font-bold uppercase tracking-[0.3em] mt-1",
-                  appMode === 'recruiter' ? "text-indigo-400" : "text-amber-400"
+                  appMode === 'recruiter' ? "text-indigo-electric" : "text-coral"
                 )}>
                   {appMode === 'recruiter' ? 'Intelligence Hub' : 'Market Mastery'}
                 </span>
@@ -123,7 +122,7 @@ export default function Sidebar({
               className={cn(
                 "w-full flex items-center px-4 py-3 rounded-lg transition-all duration-200 group text-sm font-medium",
                 currentPage === item.id 
-                  ? (appMode === 'recruiter' ? "bg-indigo-electric text-white" : "bg-amber-500 text-white") 
+                  ? (appMode === 'recruiter' ? "bg-indigo-electric text-white shadow-xl shadow-indigo-600/20" : "bg-coral text-white shadow-xl shadow-coral/20") 
                   : "text-white/60 hover:text-white hover:bg-white/5",
                 isCollapsed ? "justify-center px-0" : "gap-3"
               )}
@@ -147,7 +146,7 @@ export default function Sidebar({
             isCollapsed ? "p-3 justify-center" : "px-4 py-3 gap-3"
           )}
         >
-          <Zap className="w-4 h-4 text-amber-400 group-hover:animate-pulse shrink-0" />
+          <Zap className="w-4 h-4 text-violet group-hover:animate-pulse shrink-0" />
           {!isCollapsed && <span className="animate-in fade-in duration-300">Switch Mode</span>}
         </button>
 
@@ -180,7 +179,7 @@ export default function Sidebar({
                 "w-full py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg",
                 isLinkedInConnected 
                   ? "bg-white/10 text-white hover:bg-white/20" 
-                  : (appMode === 'recruiter' ? "bg-coral text-white hover:opacity-90 shadow-coral/20" : "bg-amber-600 text-white hover:opacity-90 shadow-amber-600/20")
+                  : (appMode === 'recruiter' ? "bg-indigo-electric text-white hover:opacity-90 shadow-indigo-electric/20" : "bg-coral text-white hover:opacity-90 shadow-coral/20")
               )}
             >
               {isLinkedInConnected ? 'Manage Account' : 'Connect Account'}

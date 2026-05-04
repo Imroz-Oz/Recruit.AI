@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Mail, 
@@ -14,7 +14,10 @@ import {
   X,
   Zap,
   Tag,
-  Wand2
+  Wand2,
+  Link2,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { auth, db } from '@/src/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -22,16 +25,19 @@ import { User as UserType } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { generateProfessionalSummary } from '@/src/services/aiService';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
+import { getLinkedInAuthUrl, updateLinkedInConnectionStatus } from '@/src/services/linkedinService';
 
 interface ProfilePageProps {
   user: UserType;
   onUpdateUser: (updatedUser: UserType) => void;
 }
 
-export default function ProfilePage({ user, onUpdateUser }: ProfilePageProps) {
+export default function ProfilePage({ user: initialUser, onUpdateUser }: ProfilePageProps) {
+  const [user, setUser] = useState<UserType>(initialUser);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isSyncingLinkedIn, setIsSyncingLinkedIn] = useState(false);
   const [editForm, setEditForm] = useState({
     name: user.name || '',
     title: user.title || '',
@@ -39,6 +45,88 @@ export default function ProfilePage({ user, onUpdateUser }: ProfilePageProps) {
     location: user.location || '',
     skills: user.skills ? user.skills.join(', ') : ''
   });
+
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Diagnostic logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[LinkedIn Profile Sync] Received Message:', event.data);
+      }
+
+      if (event.data?.type === 'LINKEDIN_AUTH_SUCCESS' && event.data.profile) {
+        const { profile } = event.data;
+        const updatedData = {
+          name: `${profile.firstName} ${profile.lastName}`,
+          linkedInConnected: true,
+          email: profile.email || user.email // Optional: update email if empty
+        };
+        
+        setIsSyncingLinkedIn(true);
+        try {
+          if (auth.currentUser) {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            await updateDoc(userRef, updatedData);
+          } else if (localStorage.getItem('isDemoLoggedIn') === 'true') {
+            // Handle Demo session update
+            const demoUser = JSON.parse(localStorage.getItem('demoUser') || '{}');
+            const updatedDemoUser = { ...demoUser, ...updatedData };
+            localStorage.setItem('demoUser', JSON.stringify(updatedDemoUser));
+          }
+          
+          const newUser = { ...user, ...updatedData };
+          onUpdateUser(newUser);
+          setUser(newUser);
+          
+          setEditForm(prev => ({
+            ...prev,
+            name: updatedData.name
+          }));
+          
+          alert('LinkedIn Identity successfully synchronized via OpenID Connect.');
+        } catch (error) {
+          console.error('Failed to update profile after LinkedIn sync:', error);
+        } finally {
+          setIsSyncingLinkedIn(false);
+        }
+      } else if (event.data?.type === 'LINKEDIN_AUTH_ERROR') {
+        setIsSyncingLinkedIn(false);
+        alert(`LinkedIn Authentication failed: ${event.data.error || 'Unknown error'}`);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [user, onUpdateUser]);
+
+  const handleSyncLinkedIn = async () => {
+    if (!auth.currentUser) return;
+    setIsSyncingLinkedIn(true);
+    try {
+      const url = await getLinkedInAuthUrl();
+      
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const authWindow = window.open(
+        url,
+        'LinkedIn Auth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      if (!authWindow) {
+        setIsSyncingLinkedIn(false);
+        alert('Popup blocked. Please enable popups to connect LinkedIn.');
+      }
+      
+      // We don't set loading to false here, the postMessage handler does that
+    } catch (error) {
+      console.error('LinkedIn sync failed:', error);
+      setIsSyncingLinkedIn(false);
+      alert('Could not initiate LinkedIn connection. Check your server configuration.');
+    }
+  };
 
   const accountSince = new Date(auth.currentUser?.metadata.creationTime || Date.now()).toLocaleDateString();
   const lastLogin = new Date(auth.currentUser?.metadata.lastSignInTime || Date.now()).toLocaleDateString();
@@ -179,7 +267,43 @@ export default function ProfilePage({ user, onUpdateUser }: ProfilePageProps) {
             )}
           </div>
 
-          <div className="bg-midnight p-10 rounded-[3rem] text-white space-y-6 shadow-2xl shadow-midnight/30">
+            <div className="bg-white p-10 rounded-[3rem] border border-midnight/5 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-[#0077B5]" /> Network Integration
+                </h4>
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  user.linkedInConnected ? "bg-emerald-500 animate-pulse" : "bg-midnight/10"
+                )} />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#0077B5] rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Link2 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-midnight italic">LinkedIn Protocol</p>
+                  <p className="text-[10px] font-medium text-midnight/40">{user.linkedInConnected ? 'Verified Connectivity' : 'Unlinked Asset'}</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSyncLinkedIn}
+                disabled={isSyncingLinkedIn}
+                className={cn(
+                  "w-full py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all",
+                  user.linkedInConnected 
+                    ? "bg-white border-2 border-midnight/5 text-midnight hover:bg-neutral-50" 
+                    : "bg-[#0077B5] text-white hover:bg-[#004182] shadow-xl shadow-blue-500/20"
+                )}
+              >
+                {isSyncingLinkedIn ? <Loader2 className="w-4 h-4 animate-spin" /> : (user.linkedInConnected ? <Zap className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />)}
+                {isSyncingLinkedIn ? 'Synchronizing Intelligence...' : (user.linkedInConnected ? 'Re-Sync Deep Profile' : 'Connect LinkedIn Account')}
+              </button>
+            </div>
+
+            <div className="bg-midnight p-10 rounded-[3rem] text-white space-y-6 shadow-2xl shadow-midnight/30">
             <h4 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" /> Security Status
             </h4>

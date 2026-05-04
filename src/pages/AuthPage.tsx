@@ -1,27 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, Sparkles, ShieldCheck, Loader2, ArrowRight, Brain, Globe, Target, Zap, User, Rocket } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import { LogIn, Sparkles, ShieldCheck, Loader2, ArrowRight, Brain, Globe, Target, Zap, User, Rocket, Mail, Lock } from 'lucide-react';
+import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
 import BrandLogo from '@/src/components/BrandLogo';
 
 interface AuthPageProps {
-  onLogin: (email: string) => void;
+  onLogin: (email: string, linkedinProfile?: any) => void;
 }
 
 export default function AuthPage({ onLogin }: AuthPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [intendedRole, setIntendedRole] = useState<'recruiter' | 'hunter' | null>(null);
+  const [authMode, setAuthMode] = useState<'social' | 'email-signin' | 'email-signup'>('social');
+  
+  // Email Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
   useEffect(() => {
-    // Clear any stale intended role on mount
     localStorage.removeItem('intendedRole');
   }, []);
 
   const handleRoleSelect = (role: 'recruiter' | 'hunter') => {
     localStorage.setItem('intendedRole', role);
     setIntendedRole(role);
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading) return;
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      if (authMode === 'email-signup') {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(result.user, { displayName: name });
+        onLogin(email);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        onLogin(email);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -72,9 +100,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         return;
       }
 
-      // Listen for the success message from the popup
       const handleMessage = (event: MessageEvent) => {
-        // Log all messages in dev for diagnostic purposes
         if (process.env.NODE_ENV === 'development') {
           console.log('[LinkedIn Auth] Received Message:', event.data);
         }
@@ -148,7 +174,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <div className="flex gap-4 items-center">
                <div className="flex -space-x-4">
                  {[1,2,3].map(i => (
-                   <div key={i} className={`w-10 h-10 rounded-full border-2 border-cream bg-midnight/10 flex items-center justify-center z-[${4-i}]`}>
+                   <div key={i} className="w-10 h-10 rounded-full border-2 border-cream bg-midnight/10 flex items-center justify-center relative shadow-sm">
                      <User className="w-4 h-4 text-midnight/50" />
                    </div>
                  ))}
@@ -168,7 +194,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <div className="absolute inset-0 bg-violet/10 blur-3xl rounded-full transform -rotate-12 translate-x-10 scale-110" />
             
             {/* Auth Card */}
-             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3rem] shadow-2xl shadow-violet/5 flex flex-col relative z-10 border border-midnight/5 min-h-[440px]">
+             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl shadow-violet/10 flex flex-col relative z-10 border border-midnight/5 min-h-[500px]">
               
               <AnimatePresence mode="wait">
                 {!intendedRole ? (
@@ -223,10 +249,13 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex-1 flex flex-col justify-center relative pt-4"
+                    className="flex-1 flex flex-col justify-center relative"
                   >
                     <button 
-                      onClick={() => setIntendedRole(null)} 
+                      onClick={() => {
+                        if (authMode === 'social') setIntendedRole(null);
+                        else setAuthMode('social');
+                      }} 
                       className="absolute -top-4 -left-4 p-2 text-midnight/30 hover:text-midnight hover:bg-neutral-100 rounded-full transition-all"
                     >
                       <ArrowRight className="w-5 h-5 rotate-180" />
@@ -234,49 +263,130 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
                     <div className="space-y-2 text-center mb-10">
                       <h2 className="text-3xl font-serif font-bold text-midnight italic">
-                        {intendedRole === 'recruiter' ? 'Launch Portal' : 'Access Orbit'}
+                        {authMode === 'email-signup' ? 'Create Account' : 
+                         authMode === 'email-signin' ? 'Welcome Back' :
+                         intendedRole === 'recruiter' ? 'Launch Portal' : 'Access Orbit'}
                       </h2>
                       <p className="text-midnight/40 text-[11px] font-bold uppercase tracking-widest">
-                        Authenticate to access intelligence
+                        {authMode === 'social' ? 'Authenticate to access intelligence' : 'Secure Email Access'}
                       </p>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {error && (
                         <div className="p-4 bg-coral/10 border border-coral/20 rounded-2xl text-coral text-xs font-bold text-center">
                           {error}
                         </div>
                       )}
 
-                      <button
-                        onClick={handleGoogleLogin}
-                        disabled={isLoading}
-                        className="w-full py-4 bg-white border-2 border-warm-gray text-midnight rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:border-midnight/20 hover:bg-neutral-50 transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-midnight" />
-                        ) : (
-                          <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-                        )}
-                        {isLoading ? 'Authenticating...' : 'Continue with Google'}
-                      </button>
+                      {authMode === 'social' ? (
+                        <>
+                          <button
+                            onClick={handleGoogleLogin}
+                            disabled={isLoading}
+                            className="w-full py-4 bg-white border-2 border-warm-gray text-midnight rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:border-midnight/20 hover:bg-neutral-50 transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50"
+                          >
+                            {isLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-midnight" />
+                            ) : (
+                              <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+                            )}
+                            {isLoading ? 'Authenticating...' : 'Continue with Google'}
+                          </button>
 
-                      <button
-                        onClick={handleLinkedInLogin}
-                        disabled={isLoading}
-                        className="w-full py-4 bg-[#0A66C2] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-[#004182] transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 disabled:opacity-50"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        ) : (
-                          <div className="w-4 h-4 bg-white text-[#0A66C2] rounded-sm flex items-center justify-center text-[10px] font-bold">in</div>
-                        )}
-                        {isLoading ? 'Authenticating...' : 'Continue with LinkedIn'}
-                      </button>
+                          <button
+                            onClick={handleLinkedInLogin}
+                            disabled={isLoading}
+                            className="w-full py-4 bg-[#0A66C2] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-[#004182] transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                          >
+                            {isLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            ) : (
+                              <div className="w-4 h-4 bg-white text-[#0A66C2] rounded-sm flex items-center justify-center text-[10px] font-bold">in</div>
+                            )}
+                            {isLoading ? 'Authenticating...' : 'Continue with LinkedIn'}
+                          </button>
 
-                      <div className="pt-6 border-t border-midnight/5">
-                        <p className="text-[10px] text-midnight/30 text-center font-medium leading-relaxed">
-                          By connecting, you agree to our <span className="underline cursor-pointer hover:text-midnight/50">Enterprise Data Agreement</span> and <a href="#/privacy" className="underline hover:text-midnight/50">Privacy Protocol</a>.
+                          <div className="relative py-2 text-center">
+                            <span className="absolute inset-x-0 top-1/2 h-px bg-midnight/5" />
+                            <span className="relative px-4 bg-white text-[10px] font-bold uppercase tracking-widest text-midnight/20">OR</span>
+                          </div>
+
+                          <button 
+                            onClick={() => setAuthMode('email-signup')}
+                            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
+                          >
+                            Sign Up for Free
+                          </button>
+                          
+                          <button 
+                            onClick={() => setAuthMode('email-signin')}
+                            className="w-full text-[10px] font-bold uppercase tracking-widest text-midnight/40 hover:text-midnight transition-colors"
+                          >
+                            Already have an account? Sign In
+                          </button>
+                        </>
+                      ) : (
+                        <form onSubmit={handleEmailAuth} className="space-y-4">
+                          {authMode === 'email-signup' && (
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Full Name</label>
+                              <div className="relative">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                                <input 
+                                  required
+                                  type="text"
+                                  value={name}
+                                  onChange={(e) => setName(e.target.value)}
+                                  className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                  placeholder="John Doe"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Work Email</label>
+                            <div className="relative">
+                              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                              <input 
+                                required
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                placeholder="name@agency.com"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Password</label>
+                            <div className="relative">
+                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                              <input 
+                                required
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                placeholder="••••••••"
+                              />
+                            </div>
+                          </div>
+                          
+                          <button 
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 mt-6 flex items-center justify-center gap-2"
+                          >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {authMode === 'email-signup' ? 'Launch Account' : 'Authenticate'}
+                          </button>
+                        </form>
+                      )}
+
+                      <div className="pt-6 border-t border-midnight/5 text-center">
+                        <p className="text-[10px] text-midnight/30 font-medium leading-relaxed">
+                          By continuing, you agree to our <span className="underline cursor-pointer hover:text-midnight/50">Enterprise Data Protocol</span>.
                         </p>
                       </div>
                     </div>
@@ -297,9 +407,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <h3 className="text-4xl md:text-5xl font-serif font-bold italic leading-tight">Elevating Human Potential through Machine Precision</h3>
             <p className="text-xl text-midnight/60 leading-relaxed font-medium">
               We built Recruit AI to bridge the gap between extraordinary talent and visionary enterprises. 
-              Our platform doesn't just parse resumes; it understands professional DNA, creating matches 
-              that traditional algorithms miss. Whether you are a strategic headhunter or an elite candidate, 
-              Recruit AI equips you with the intelligence needed to operate at the peak of the market.
+              Our platform doesn't just parse resumes; it understands professional DNA.
             </p>
           </div>
         </div>
@@ -315,9 +423,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
            <div className="grid md:grid-cols-3 gap-8">
              {[
-               { icon: Brain, title: 'Advisor Deep-Dive', desc: 'Autonomous intelligence agent that analyzes resumes contextually, extracting true skill trajectories and leadership potential.', color: 'text-indigo-electric', bg: 'bg-indigo-electric/10' },
-               { icon: Target, title: 'Selection Orbit', desc: 'Enterprise-grade sourcing logic allowing you to build highly targeted talent pools and monitor market movements.', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-               { icon: Globe, title: 'Opportunity Matrix', desc: 'Candidates receive AI-curated role recommendations that align not just with skills, but with career trajectory and culture.', color: 'text-amber-500', bg: 'bg-amber-500/10' }
+               { icon: Brain, title: 'Advisor Deep-Dive', desc: 'Autonomous intelligence agent that analyzes resumes contextually.', color: 'text-indigo-electric', bg: 'bg-indigo-electric/10' },
+               { icon: Target, title: 'Selection Orbit', desc: 'Enterprise-grade sourcing logic allowing you to build highly targeted talent pools.', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+               { icon: Globe, title: 'Opportunity Matrix', desc: 'Candidates receive AI-curated role recommendations.', color: 'text-amber-500', bg: 'bg-amber-500/10' }
              ].map((feature, i) => (
                <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-midnight/5 hover:border-midnight/10 transition-colors shadow-sm">
                  <div className={`w-14 h-14 ${feature.bg} rounded-2xl flex items-center justify-center mb-8`}>
@@ -331,31 +439,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         </div>
       </section>
 
-      {/* Security / Footer CTA */}
-      <section id="security" className="py-24 bg-midnight text-white text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20" />
-        <div className="max-w-3xl mx-auto px-6 lg:px-8 relative z-10 space-y-8">
-           <ShieldCheck className="w-16 h-16 text-violet mx-auto" />
-           <h3 className="text-4xl font-serif font-bold italic">Enterprise Grade Security</h3>
-           <p className="text-xl text-white/50 leading-relaxed">
-             Your data infrastructure is fortified. We utilize state-of-the-art encryption, zero-retention AI protocols, and strict RBAC controls to ensure your talent repository remains absolutely secure.
-           </p>
-           <div className="pt-8">
-             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-8 py-4 bg-white text-midnight rounded-full font-bold text-[11px] uppercase tracking-widest hover:bg-neutral-200 transition-all">
-               Access Portal Now
-             </button>
-           </div>
-        </div>
-      </section>
-
       <footer className="bg-midnight border-t border-white/10 text-white/30 py-12 text-center text-xs font-medium">
         <div className="flex flex-col items-center gap-6">
           <p>&copy; {new Date().getFullYear()} Recruit AI | Intelligence Systems. All rights reserved.</p>
-          <div className="flex gap-8">
-            <a href="#/privacy" className="hover:text-white transition-colors underline decoration-white/20 underline-offset-4">Privacy Protocol</a>
-            <span className="cursor-pointer hover:text-white transition-colors">Data Agreement</span>
-            <span className="cursor-pointer hover:text-white transition-colors">Ethics Policy</span>
-          </div>
         </div>
       </footer>
     </div>

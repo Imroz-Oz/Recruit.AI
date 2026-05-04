@@ -27,7 +27,7 @@ export default function SourcingPage({ isLinkedInConnected }: { isLinkedInConnec
       </header>
 
       <div className="grid grid-cols-1 gap-12">
-        <CandidateSearch onMatchesFound={setMatches} />
+        <CandidateSearch onMatchesFound={setMatches} isLinkedInConnected={isLinkedInConnected} />
       </div>
       
       {/* Search Templates provided by User Experience */}

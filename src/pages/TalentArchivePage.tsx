@@ -17,7 +17,8 @@ import {
   Download,
   Filter,
   CheckCircle2,
-  X
+  X,
+  Target
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc } from 'firebase/firestore';
@@ -34,6 +35,8 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [booleanQuery, setBooleanQuery] = useState('');
+  const [isBooleanSearchActive, setIsBooleanSearchActive] = useState(false);
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -158,11 +161,30 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
     setIsSummarizing(false);
   };
 
-  const filteredCandidates = candidates.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.keywords?.some((k: string) => k.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleBooleanSearch = () => {
+    if (!booleanQuery.trim()) {
+      setIsBooleanSearchActive(false);
+      return;
+    }
+    setIsBooleanSearchActive(true);
+  };
+
+  const clearBooleanSearch = () => {
+    setBooleanQuery('');
+    setIsBooleanSearchActive(false);
+  };
+
+  const filteredCandidates = candidates.filter(c => {
+    const searchString = (c.name + ' ' + c.title + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
+    
+    if (isBooleanSearchActive && booleanQuery) {
+      // Simulating boolean logic by checking if all terms exist (AND logic)
+      const terms = booleanQuery.replace(/[()"]/g, '').split(/\s+AND\s+/).map(t => t.trim().toLowerCase());
+      return terms.every(term => searchString.includes(term));
+    }
+    
+    return searchString.includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-12 animate-in fade-in duration-700 pb-20">
@@ -189,6 +211,74 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
            </label>
         </div>
       </header>
+
+      {/* Boolean Search Engine Section */}
+      <section className="bg-midnight p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-electric/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="relative z-10 flex gap-12">
+          <div className="flex-1 space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                <Terminal className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-serif font-bold text-white italic">Neural Boolean Engine</h3>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Query your internal cloud with direct logic strings</p>
+              </div>
+            </div>
+            
+            <div className="relative group/input">
+              <textarea 
+                value={booleanQuery}
+                onChange={(e) => setBooleanQuery(e.target.value)}
+                placeholder='e.g. ("Java" OR "Kotlin") AND "Spring Boot" AND "AWS"...'
+                className="w-full h-32 p-6 bg-white/5 border border-white/10 rounded-[2rem] outline-none focus:border-indigo-electric/50 text-white font-mono text-xs leading-relaxed transition-all resize-none shadow-inner"
+              />
+              <div className="absolute bottom-4 right-4 flex gap-2">
+                {isBooleanSearchActive && (
+                  <button 
+                    onClick={clearBooleanSearch}
+                    className="p-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  onClick={handleBooleanSearch}
+                  className="px-8 py-3 bg-indigo-electric text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-white hover:text-midnight transition-all shadow-lg"
+                >
+                  Run Query
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-80 space-y-4">
+             <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] backdrop-blur-md">
+                <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mb-4 flex items-center gap-2">
+                   <Target className="w-3.5 h-3.5" /> High-Intensity Syntax
+                </h5>
+                <ul className="space-y-3">
+                  {[
+                    '("Go" OR "Rust") AND "Distributed"',
+                    '("Product" OR "Lead") AND "B2B"',
+                    '("Solidity" OR "Web3") AND "EVM"'
+                  ].map((s, i) => (
+                    <li key={i} className="group/item pb-2 border-b border-white/5 flex items-center justify-between">
+                       <span className="text-[10px] font-mono text-indigo-200/60 truncate w-48">{s}</span>
+                       <button 
+                        onClick={() => setBooleanQuery(s)}
+                        className="p-1.5 bg-white/5 rounded-lg opacity-0 group-hover/item:opacity-100 group-hover/item:bg-indigo-electric transition-all"
+                       >
+                         <ArrowRight className="w-3 h-3 text-white" />
+                       </button>
+                    </li>
+                  ))}
+                </ul>
+             </div>
+          </div>
+        </div>
+      </section>
 
       {/* Stats Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

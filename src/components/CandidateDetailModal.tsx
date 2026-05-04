@@ -1,25 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  X, 
-  MapPin, 
-  Clock, 
-  Mail, 
-  Globe, 
-  FileText, 
-  MessageSquare, 
-  Lock, 
-  Users, 
-  Brain, 
-  RotateCcw, 
-  DollarSign, 
-  Calendar,
-  CheckCircle2,
-  Trash2,
-  User,
-  ExternalLink
+  X, MapPin, Clock, Mail, Globe, FileText, MessageSquare, Lock, Users, Brain, RotateCcw, 
+  DollarSign, Calendar, CheckCircle2, Trash2, User, ExternalLink, Briefcase, Target, 
+  TrendingUp, Zap, ChevronRight, Save, Phone, Sparkles, Rocket
 } from 'lucide-react';
-import { Candidate, Note, PipelineStage } from '@/src/types';
+import { Candidate, PipelineStage } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { generateCandidateIntelligence } from '@/src/services/aiService';
 
@@ -30,19 +16,37 @@ interface CandidateDetailModalProps {
 }
 
 export default function CandidateDetailModal({ candidate, onClose, onUpdate }: CandidateDetailModalProps) {
-  const [noteText, setNoteText] = useState('');
-  const [isNotePrivate, setIsNotePrivate] = useState(true);
+  const [activeTab, setActiveTab] = useState<'profile' | 'submittal' | 'interview' | 'offer'>('profile');
   const [isAiSummarizing, setIsAiSummarizing] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
 
-  const stages: { id: PipelineStage; label: string; color: string }[] = [
-    { id: 'sourcing', label: 'Sourcing', color: 'bg-neutral-100 text-neutral-500' },
-    { id: 'submitted', label: 'Submitted', color: 'bg-indigo-50 text-indigo-600' },
-    { id: 'interviewing', label: 'Interviewing', color: 'bg-amber-50 text-amber-600' },
-    { id: 'offer', label: 'Offer Stage', color: 'bg-emerald-50 text-emerald-600' },
-    { id: 'hired', label: 'Hired', color: 'bg-indigo-electric text-white' },
-    { id: 'rejected', label: 'Rejected', color: 'bg-red-50 text-red-600' }
-  ];
+  // Form states for automation
+  const [formData, setFormData] = useState<Partial<Candidate>>({ ...candidate });
+
+  const handleUpdate = () => {
+    // Automated Status Triggers
+    let newStage = formData.stage || candidate.stage;
+
+    // 1. If submittal details are filled, move to 'submitted'
+    if (newStage === 'sourcing' && formData.clientName && formData.jobId) {
+      newStage = 'submitted';
+    }
+
+    // 2. If interview details are filled, move to 'interviewing'
+    if ((newStage === 'submitted' || newStage === 'sourcing') && formData.interviewDate) {
+      newStage = 'interviewing';
+    }
+
+    // 3. If start date or offer date, move to 'offer' or 'hired'
+    if (formData.startDate) {
+      newStage = 'hired';
+    } else if (formData.offerDate && newStage !== 'hired') {
+      newStage = 'offer';
+    }
+
+    const updatedCandidate = { ...formData, stage: newStage } as Candidate;
+    onUpdate(updatedCandidate);
+  };
 
   const handleGenerateAi = async () => {
     setIsAiSummarizing(true);
@@ -51,30 +55,20 @@ export default function CandidateDetailModal({ candidate, onClose, onUpdate }: C
     setIsAiSummarizing(false);
   };
 
-  const addNote = () => {
-    if (!noteText.trim()) return;
-    const newNote: Note = {
-      id: Date.now().toString(),
-      authorId: 'me',
-      text: noteText,
-      isPrivate: isNotePrivate,
-      timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    };
-    const updated = { ...candidate, notes: [newNote, ...(candidate.notes || [])] };
-    onUpdate(updated);
-    setNoteText('');
-  };
-
-  const updateStage = (stage: PipelineStage) => {
-    onUpdate({ ...candidate, stage });
-  };
+  const stages: { id: PipelineStage; label: string; color: string }[] = [
+    { id: 'sourcing', label: 'Sourcing', color: 'bg-neutral-100 text-neutral-500' },
+    { id: 'submitted', label: 'Submitted', color: 'bg-indigo-50 text-indigo-600' },
+    { id: 'interviewing', label: 'Interviewing', color: 'bg-amber-50 text-amber-600' },
+    { id: 'offer', label: 'Offer', color: 'bg-emerald-50 text-emerald-600' },
+    { id: 'hired', label: 'Hired', color: 'bg-indigo-electric text-white' }
+  ];
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-midnight/80 backdrop-blur-xl z-[100] flex items-center justify-end"
+      className="fixed inset-0 bg-midnight/80 backdrop-blur-xl z-[150] flex items-center justify-end"
       onClick={onClose}
     >
       <motion.div 
@@ -82,198 +76,317 @@ export default function CandidateDetailModal({ candidate, onClose, onUpdate }: C
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="w-full max-w-4xl h-full bg-cream shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-5xl h-full bg-cream shadow-2xl flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Top Header */}
         <header className="p-8 border-b border-midnight/5 bg-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-indigo-electric text-white rounded-3xl flex items-center justify-center font-serif font-bold text-3xl italic shadow-2xl shadow-indigo-500/20 uppercase">
+            <div className="w-14 h-14 bg-midnight text-white rounded-2xl flex items-center justify-center font-serif font-bold text-2xl italic shadow-2xl shadow-midnight/20">
               {candidate.name[0]}
             </div>
             <div>
-              <h2 className="text-3xl font-serif font-bold text-midnight italic">{candidate.name}</h2>
-              <div className="flex items-center gap-4 mt-1">
-                <span className="text-indigo-electric font-bold text-[10px] uppercase tracking-widest">{candidate.title}</span>
-                <span className="w-1 h-1 bg-midnight/10 rounded-full" />
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-serif font-bold text-midnight italic">{candidate.name}</h2>
                 <div className={cn(
-                  "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                  "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest",
                   stages.find(s => s.id === candidate.stage)?.color
                 )}>
                   {stages.find(s => s.id === candidate.stage)?.label}
                 </div>
               </div>
+              <p className="text-indigo-electric font-bold text-[10px] uppercase tracking-widest mt-1">{candidate.title} • {candidate.location}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-3 hover:bg-neutral-100 rounded-full transition-all text-midnight/20 hover:text-midnight"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleUpdate}
+              className="px-6 py-3 bg-midnight text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" /> Save Dossier
+            </button>
+            <button onClick={onClose} className="p-3 hover:bg-neutral-100 rounded-full transition-all text-midnight/20 hover:text-midnight">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-12 space-y-12 scrollbar-hide">
-          {/* Quick Stats */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             {[
-               { icon: MapPin, label: 'Location', val: candidate.location },
-               { icon: Clock, label: 'Experience', val: `${candidate.experience} Years` },
-               { icon: Mail, label: 'Email', val: candidate.email },
-               { icon: Globe, label: 'Profile', val: candidate.linkedInUrl ? 'LinkedIn Connected' : 'Internal Only' },
-             ].map(stat => (
-               <div key={stat.label} className="bg-white p-5 rounded-2xl border border-midnight/5">
-                 <stat.icon className="w-4 h-4 text-midnight/20 mb-3" />
-                 <p className="text-[8px] font-bold uppercase tracking-widest text-midnight/30 mb-1">{stat.label}</p>
-                 <p className="text-[11px] font-bold text-midnight truncate">{stat.val}</p>
-               </div>
-             ))}
-          </section>
-
-          {/* AI Intelligence */}
-          <section className="bg-white p-8 rounded-[3rem] border border-midnight/5 space-y-6 relative overflow-hidden group">
-            <div className="flex justify-between items-center relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-electric/10 rounded-xl flex items-center justify-center">
-                  <Brain className="w-5 h-5 text-indigo-electric" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-midnight">Recruiter Advisor Insights</h4>
-                  <p className="text-[9px] font-bold text-midnight/30 uppercase tracking-widest">Autonomous Talent Parsing</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleGenerateAi}
-                disabled={isAiSummarizing}
-                className="text-[9px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 hover:opacity-70 transition-all"
-              >
-                {isAiSummarizing ? 'Analyzing Logic...' : 'Refresh DNA Map'} <RotateCcw className={cn("w-3 h-3", isAiSummarizing && "animate-spin")} />
-              </button>
-            </div>
-            
-            <div className="prose prose-sm font-medium text-midnight/70 leading-relaxed italic relative z-10">
-              {isAiSummarizing ? (
-                <div className="space-y-3">
-                  <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-full" />
-                  <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[90%]" />
-                  <div className="h-4 bg-midnight/5 rounded-full animate-pulse w-[75%]" />
-                </div>
-              ) : (
-                <div className="whitespace-pre-wrap">
-                  {aiSummary || "Activate Advisor Insights for strategic mission alignment analysis..."}
-                </div>
+        {/* Tab Navigation */}
+        <nav className="flex px-8 bg-white border-b border-midnight/5 shrink-0 overflow-x-auto scrollbar-hide">
+          {[
+            { id: 'profile', label: 'Candidate Profile', icon: User },
+            { id: 'submittal', label: 'Client Submittal', icon: Target },
+            { id: 'interview', label: 'Interview Process', icon: Calendar },
+            { id: 'offer', label: 'Offer & Start', icon: TrendingUp }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={cn(
+                "px-6 py-5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border-b-2 transition-all whitespace-nowrap",
+                activeTab === tab.id 
+                  ? "border-indigo-electric text-indigo-electric" 
+                  : "border-transparent text-midnight/30 hover:text-midnight/60"
               )}
-            </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-electric/5 blur-[100px] -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </section>
+            >
+              <tab.icon className="w-4 h-4" /> {tab.label}
+            </button>
+          ))}
+        </nav>
 
-          {/* Pipeline Management */}
-          <section className="space-y-6">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-midnight/30 px-2 space-x-2 flex items-center gap-2">
-              <RotateCcw className="w-4 h-4" /> Pipeline Stage Synchronization
-            </h4>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-              {stages.map(stage => {
-                const isActive = candidate.stage === stage.id;
-                return (
-                  <button 
-                    key={stage.id}
-                    onClick={() => updateStage(stage.id)}
-                    className={cn(
-                      "p-4 rounded-2xl border text-center transition-all flex flex-col items-center gap-2",
-                      isActive 
-                        ? (stage.id === 'rejected' ? "bg-red-500 text-white border-red-500" : "bg-midnight text-white border-midnight shadow-lg") 
-                        : "bg-white text-midnight/40 border-midnight/5 hover:border-indigo-electric"
-                    )}
-                  >
-                    {isActive ? <CheckCircle2 className="w-5 h-5 opacity-50" /> : <div className="w-5 h-5 rounded-full border-2 border-midnight/10" />}
-                    <span className="text-[8px] font-bold uppercase tracking-widest">{stage.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Internal Notes - THE USER REQUESTED SECTION */}
-          <section className="space-y-6">
-            <div className="flex justify-between items-center px-2">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-midnight flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-electric" /> Internal Intelligence Log
-              </h4>
-              <button 
-                onClick={() => setIsNotePrivate(!isNotePrivate)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all",
-                  isNotePrivate ? "bg-midnight text-white" : "bg-white border border-midnight/5 text-midnight/40"
-                )}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-12 scrollbar-hide">
+          <AnimatePresence mode="wait">
+            {activeTab === 'profile' && (
+              <motion.div 
+                key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="space-y-12"
               >
-                {isNotePrivate ? <Lock className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                {isNotePrivate ? 'Private Note' : 'Public to Company'}
-              </button>
-            </div>
-            
-            <div className="space-y-6 bg-white p-10 rounded-[3rem] border border-midnight/5">
-              <div className="relative">
-                <textarea
-                  placeholder="Attach private details about pay expectations, interview sentiment, or specific role risks..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  className="w-full p-8 bg-cream border border-transparent rounded-[2.5rem] focus:bg-white focus:border-indigo-electric/20 outline-none transition-all text-sm font-medium h-32 resize-none"
-                />
-                <button 
-                  onClick={addNote}
-                  className="absolute bottom-4 right-4 bg-indigo-electric text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-indigo-600/20"
-                >
-                  Encrypt & Save
-                </button>
-              </div>
+                {/* Basic Details Info */}
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 px-1">Email Contact</label>
+                       <input 
+                         type="email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})}
+                         className="w-full p-4 bg-white border border-midnight/5 rounded-2xl text-sm font-medium outline-none focus:border-indigo-electric/30 transition-all"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 px-1">Phone Number</label>
+                       <input 
+                         type="text" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})}
+                         className="w-full p-4 bg-white border border-midnight/5 rounded-2xl text-sm font-medium outline-none focus:border-indigo-electric/30 transition-all"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 px-1">Expected Pay</label>
+                       <div className="relative">
+                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                         <input 
+                           type="text" value={formData.expectedPay || ''} onChange={e => setFormData({...formData, expectedPay: e.target.value})}
+                           className="w-full pl-10 pr-4 py-4 bg-white border border-midnight/5 rounded-2xl text-sm font-medium outline-none focus:border-indigo-electric/30 transition-all"
+                           placeholder="e.g. 150k/yr"
+                         />
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 px-1">Years Exp</label>
+                       <input 
+                         type="number" value={formData.experience || 0} onChange={e => setFormData({...formData, experience: parseInt(e.target.value) || 0})}
+                         className="w-full p-4 bg-white border border-midnight/5 rounded-2xl text-sm font-medium outline-none focus:border-indigo-electric/30 transition-all"
+                       />
+                    </div>
+                 </div>
 
-              <div className="space-y-6">
-                {(candidate.notes || []).map(note => (
-                  <div key={note.id} className="p-6 bg-cream/50 border border-midnight/5 rounded-[2rem] relative group hover:bg-white transition-colors">
-                     <div className="flex justify-between items-start mb-4">
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-indigo-electric/10 rounded-xl flex items-center justify-center">
-                            <User className="w-4 h-4 text-indigo-electric" />
+                 {/* Advanced Notes */}
+                 <div className="grid md:grid-cols-2 gap-8">
+                   <div className="space-y-4">
+                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-midnight px-1">
+                       <Lock className="w-3 h-3 text-coral" /> Private Intelligence Notes
+                     </div>
+                     <textarea 
+                       value={formData.privateNotes || ''} onChange={e => setFormData({...formData, privateNotes: e.target.value})}
+                       placeholder="Confidential notes visible ONLY to you..."
+                       className="w-full h-40 p-6 bg-white border border-midnight/5 rounded-[2rem] text-sm font-medium resize-none outline-none focus:border-coral/30"
+                     />
+                   </div>
+                   <div className="space-y-4">
+                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-midnight px-1">
+                       <Users className="w-3 h-3 text-indigo-electric" /> Shared Internal Notes
+                     </div>
+                     <textarea 
+                       value={formData.internalNotes || ''} onChange={e => setFormData({...formData, internalNotes: e.target.value})}
+                       placeholder="Collaborative notes visible to all recruiters in your org..."
+                       className="w-full h-40 p-6 bg-white border border-midnight/5 rounded-[2rem] text-sm font-medium resize-none outline-none focus:border-indigo-electric/30"
+                     />
+                   </div>
+                 </div>
+
+                 {/* AI Insights */}
+                 <div className="bg-midnight p-10 rounded-[3rem] text-white space-y-6 relative overflow-hidden group">
+                    <div className="relative z-10 flex justify-between items-start">
+                       <div className="flex gap-4">
+                          <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                            <Brain className="w-6 h-6 text-indigo-electric" />
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-midnight uppercase tracking-wider">Internal Recruiter</p>
-                            <p className="text-[8px] font-bold text-midnight/30 uppercase tracking-widest">{note.timestamp}</p>
+                            <h4 className="text-sm font-serif font-bold italic tracking-wide">Recruiter Advisor Intelligence</h4>
+                            <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Autonomous Profile Optimization</p>
                           </div>
                        </div>
-                       {note.isPrivate && (
-                         <div className="flex items-center gap-2 px-2 py-1 bg-midnight/5 rounded-full">
-                           <Lock className="w-3 h-3 text-midnight/30" />
-                           <span className="text-[8px] font-bold text-midnight/20 uppercase">Encrypted</span>
-                         </div>
-                       )}
-                     </div>
-                     <p className="text-sm text-midnight/70 leading-relaxed font-medium pl-1">{note.text}</p>
-                  </div>
-                ))}
-                {(!candidate.notes || candidate.notes.length === 0) && (
-                  <div className="py-12 text-center text-midnight/20 space-y-3">
-                    <MessageSquare className="w-8 h-8 mx-auto opacity-20" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em]">No internal logs currently attached</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+                       <button onClick={handleGenerateAi} className="text-[10px] font-bold uppercase tracking-widest bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all">
+                         Analyze Genetic Match
+                       </button>
+                    </div>
+                    <div className="relative z-10 text-sm font-medium text-white/70 italic leading-relaxed">
+                       {aiSummary || "Run intelligence scan to identify hidden profile strengths and career trajectory anomalies..."}
+                    </div>
+                 </div>
+              </motion.div>
+            )}
 
-          {/* Action Footer */}
-          <footer className="pt-10 flex gap-4 flex-wrap border-t border-midnight/5">
-             <button className="flex-1 py-4 bg-midnight text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10">
-               <FileText className="w-4 h-4" /> Download Resume DNA
-             </button>
-             <button className="flex-1 py-4 bg-white border border-midnight/5 text-midnight rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:border-indigo-electric/30 transition-all">
-               <ExternalLink className="w-4 h-4" /> View Full Dossier
-             </button>
-             <button className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
-               <Trash2 className="w-5 h-5" />
-             </button>
-          </footer>
+            {activeTab === 'submittal' && (
+               <motion.div 
+                 key="submittal" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                 className="space-y-12"
+               >
+                 <div className="space-y-2">
+                    <h3 className="text-2xl font-serif font-bold text-midnight italic">Client Submission Blueprint</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 italic">Filling these fields will automatically update stage to 'SUBMITTED'</p>
+                 </div>
+
+                 <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-6 bg-white p-10 rounded-[3rem] border border-midnight/5">
+                       <h4 className="text-[11px] font-bold uppercase tracking-widest text-midnight flex items-center gap-2"><Briefcase className="w-4 h-4" /> Mission Targets</h4>
+                       <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Target Client Name</label>
+                            <input 
+                              type="text" value={formData.clientName || ''} onChange={e => setFormData({...formData, clientName: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                              placeholder="e.g. Quantum Dynamics Corp"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Target Job ID / Requisition</label>
+                            <input 
+                              type="text" value={formData.jobId || ''} onChange={e => setFormData({...formData, jobId: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                              placeholder="e.g. JD-2024-88A"
+                            />
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-6 bg-white p-10 rounded-[3rem] border border-midnight/5">
+                       <h4 className="text-[11px] font-bold uppercase tracking-widest text-midnight flex items-center gap-2"><DollarSign className="w-4 h-4" /> Financial Projections</h4>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Candidate Pay Rate</label>
+                            <input 
+                              type="text" value={formData.payRate || ''} onChange={e => setFormData({...formData, payRate: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                              placeholder="$85/hr"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Client Bill Rate</label>
+                            <input 
+                              type="text" value={formData.billRate || ''} onChange={e => setFormData({...formData, billRate: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                              placeholder="$120/hr"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Additional Bonus</label>
+                            <input 
+                              type="text" value={formData.bonus || ''} onChange={e => setFormData({...formData, bonus: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-midnight/40 px-1">Per Diem / Stipend</label>
+                            <input 
+                              type="text" value={formData.perDiem || ''} onChange={e => setFormData({...formData, perDiem: e.target.value})}
+                              className="w-full p-4 bg-warm-gray border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-electric/30 outline-none transition-all"
+                            />
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+               </motion.div>
+            )}
+
+            {activeTab === 'interview' && (
+               <motion.div 
+                 key="interview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                 className="space-y-12"
+               >
+                 <div className="space-y-2">
+                    <h3 className="text-2xl font-serif font-bold text-midnight italic">Tactical Interview Scheduler</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 italic">Coordinate field activities and capture mission sentiment</p>
+                 </div>
+
+                 <div className="bg-white p-12 rounded-[4rem] border border-midnight/5 flex flex-col items-center text-center space-y-8">
+                    <div className="w-20 h-20 bg-amber-50 rounded-[2rem] flex items-center justify-center">
+                       <Calendar className="w-10 h-10 text-amber-500" />
+                    </div>
+                    <div className="max-w-md space-y-4">
+                       <label className="text-sm font-bold text-midnight block">Select Engagement Timestamp</label>
+                       <input 
+                         type="datetime-local" 
+                         value={formData.interviewDate || ''} 
+                         onChange={e => setFormData({...formData, interviewDate: e.target.value})}
+                         className="w-full p-5 bg-warm-gray rounded-3xl text-sm font-bold border-2 border-transparent focus:border-amber-500 transition-all outline-none"
+                       />
+                       <p className="text-[10px] font-medium text-midnight/40 tracking-[0.05em] leading-relaxed">
+                         Note: Setting this date will automatically elevate the candidate to <span className="text-amber-600 font-bold">'INTERVIEWING'</span> status.
+                       </p>
+                    </div>
+
+                    <div className="w-full pt-8 space-y-4">
+                       <label className="text-[11px] font-bold uppercase tracking-widest text-midnight/30 block text-left px-4">Post-Engagement Debrief</label>
+                       <textarea 
+                         value={formData.interviewNotes || ''} onChange={e => setFormData({...formData, interviewNotes: e.target.value})}
+                         placeholder="Capturing candidate sentiment, technical proficiency, and mission risk factors..."
+                         className="w-full h-40 p-8 bg-warm-gray border border-transparent rounded-[3rem] text-sm font-medium resize-none outline-none focus:bg-white focus:border-amber-500/20 transition-all"
+                       />
+                    </div>
+                 </div>
+               </motion.div>
+            )}
+
+            {activeTab === 'offer' && (
+               <motion.div 
+                 key="offer" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                 className="space-y-12"
+               >
+                 <div className="space-y-2">
+                    <h3 className="text-2xl font-serif font-bold text-midnight italic">Mission Close: Offer & Start</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 italic">Finalize the deployment and finalize contract details</p>
+                 </div>
+
+                 <div className="grid md:grid-cols-2 gap-8">
+                    <div className="bg-emerald-50 p-10 rounded-[3rem] border border-emerald-100 space-y-6">
+                       <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-800 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Offer Details</h4>
+                       <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-emerald-800/40 px-1">Offer Release Date</label>
+                            <input 
+                              type="date" value={formData.offerDate || ''} onChange={e => setFormData({...formData, offerDate: e.target.value})}
+                              className="w-full p-4 bg-white border border-emerald-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-emerald-800/40 px-1">Total Compensation Package</label>
+                            <input 
+                              type="text" value={formData.totalPackage || ''} onChange={e => setFormData({...formData, totalPackage: e.target.value})}
+                              className="w-full p-4 bg-white border border-emerald-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              placeholder="e.g. $185k + 10% Bonus"
+                            />
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="bg-indigo-50 p-10 rounded-[3rem] border border-indigo-100 space-y-6">
+                       <h4 className="text-[11px] font-bold uppercase tracking-widest text-indigo-800 flex items-center gap-2"><Rocket className="w-4 h-4" /> Deployment Start</h4>
+                       <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase text-indigo-800/40 px-1">Official Start Date</label>
+                            <input 
+                              type="date" value={formData.startDate || ''} onChange={e => setFormData({...formData, startDate: e.target.value})}
+                              className="w-full p-4 bg-white border border-indigo-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                          </div>
+                          <p className="text-[10px] italic text-indigo-400 leading-relaxed font-bold px-1">
+                            Setting a start date marks this lifecycle as <span className="text-indigo-electric uppercase">'COMPLETED / STARTED'</span> and will reflect in your performance analytics.
+                          </p>
+                       </div>
+                    </div>
+                 </div>
+               </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </motion.div>

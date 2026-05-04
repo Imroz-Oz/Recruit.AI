@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Filter, Target, MapPin, Briefcase, GraduationCap, DollarSign, Search } from 'lucide-react';
+import { X, Filter, Target, MapPin, Briefcase, GraduationCap, DollarSign, Search, Zap } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 interface CandidateFilterModalProps {

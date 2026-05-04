@@ -22,8 +22,11 @@ async function startServer() {
   const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
   const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || `${normalizedAppUrl}/auth/callback`;
 
-  console.log(`[LinkedIn Auth] Active Redirect URI: ${LINKEDIN_REDIRECT_URI}`);
-  console.log(`[LinkedIn Auth] If you see a mismatch error, ensure the above URL is added to the LinkedIn Developer Portal.`);
+  // Log the active redirect URI for debugging (only in development)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[LinkedIn Auth] Active Redirect URI: ${LINKEDIN_REDIRECT_URI}`);
+    console.log(`[LinkedIn Auth] Configuration Guide: If you see a redirect_uri_mismatch error, ensure the above URL is added to your LinkedIn Developer Portal.`);
+  }
 
   // API Routes
   app.get("/api/health", (req, res) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, 
@@ -16,10 +16,14 @@ import {
   Database,
   History,
   Terminal,
-  Filter
+  Filter,
+  Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Candidate } from '@/src/types';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface ResumeVaultPageProps {
   userRole?: string;
@@ -34,38 +38,102 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
   const [booleanQuery, setBooleanQuery] = useState('');
   const [isSearchingInternal, setIsSearchingInternal] = useState(false);
   const [searchResults, setSearchResults] = useState<Candidate[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
+  const [showLocationError, setShowLocationError] = useState(false);
+  const [allCandidates, setAllCandidates] = useState<Candidate[]>([]);
+  const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
 
-  const startAnalysis = () => {
-    setIsAnalyzing(true);
-    setScore(0);
-    setShowResults(false);
-    
-    setTimeout(() => {
-      let currentScore = 0;
-      const interval = setInterval(() => {
-        currentScore += 2;
-        setScore(currentScore);
-        if (currentScore >= 92) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          setShowResults(true);
-        }
-      }, 30);
-    }, 1500);
+  // Real-time listener for the vault
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, 'candidates'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Candidate));
+      setAllCandidates(fetched);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'candidates');
+    });
+
+    return () => unsubscribe();
+  }, [auth.currentUser]);
+
+  const handleIngress = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !auth.currentUser) return;
+
+    setIsSyncing(true);
+    try {
+      const results = await Promise.all(Array.from(files as unknown as File[]).map(async (file) => {
+        const reader = new FileReader();
+        const textPromise = new Promise<string>((resolve) => {
+          reader.onload = (ev) => resolve(ev.target?.result as string || '');
+          reader.readAsText(file);
+        });
+        
+        const text = await textPromise;
+        const talent = {
+          recruiterId: auth.currentUser?.uid,
+          name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
+          title: 'Imported Talent',
+          email: `${file.name.split('.')[0].toLowerCase().replace(/\s+/g, '.')}@imported.com`,
+          location: 'Global Vault',
+          score: 90,
+          resumeSnippet: text.slice(0, 500) || `Mission critical asset indexed from ${file.name}.`,
+          keywords: [file.name.split('.')[0].toLowerCase(), 'vault', 'imported'],
+          createdAt: serverTimestamp()
+        };
+        
+        const docRef = await addDoc(collection(db, 'candidates'), talent);
+        return { id: docRef.id, ...talent };
+      }));
+      
+      console.log('Ingressed:', results.length, 'candidates');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'candidates');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleBooleanSearch = () => {
-    if (!booleanQuery.trim()) return;
+    if (!booleanQuery.trim()) {
+      setFilteredCandidates([]);
+      return;
+    }
     setIsSearchingInternal(true);
     
-    // Simulate complex boolean search logic
     setTimeout(() => {
-      setSearchResults([
-        { id: '1', name: 'Jonathan Wick', title: 'Security Architect', email: 'j.wick@continental.com', location: 'New York, NY', experience: 15, skills: ['Sentinel', 'C++', 'Threat Intel'], isInternal: true, stage: 'sourcing', notes: [] },
-        { id: '2', name: 'Diana Prince', title: 'Chief Talent Officer', email: 'diana@themyscira.com', location: 'London, UK', experience: 2000, skills: ['Leadership', 'Diplomacy', 'Strategic Planning'], isInternal: true, stage: 'sourcing', notes: [] }
-      ]);
+      const terms = booleanQuery.replace(/[()"]/g, '').split(/\s+AND\s+/).map(t => t.trim().toLowerCase());
+      const results = allCandidates.filter(c => {
+        const searchString = (c.name + ' ' + c.title + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
+        return terms.every(term => searchString.includes(term));
+      });
+      setFilteredCandidates(results);
       setIsSearchingInternal(false);
-    }, 2000);
+    }, 1000);
+  };
+
+  const handleXRaySearch = () => {
+    const hasLocation = xRayLocation.country || xRayLocation.state || xRayLocation.zip;
+    if (!hasLocation) {
+      setShowLocationError(true);
+      return;
+    }
+    
+    setShowLocationError(false);
+    if (!booleanQuery) return;
+    
+    const locationString = [xRayLocation.country, xRayLocation.state, xRayLocation.zip].filter(Boolean).join(' ');
+    const fullQuery = encodeURIComponent(`${booleanQuery} "${locationString}"`);
+    const url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+    
+    window.open(url, '_blank');
   };
 
   return (
@@ -88,9 +156,17 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
         <div className="lg:col-span-4 space-y-8">
            <div className="bg-white p-10 rounded-[3.5rem] border border-midnight/5 shadow-sm space-y-8 sticky top-8">
               <div className="space-y-4">
-                 <div className="flex items-center gap-2 px-1">
-                    <Terminal className="w-4 h-4 text-indigo-electric" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-midnight">Boolean Logic Engine</span>
+                 <div className="flex justify-between items-center px-1">
+                    <div className="flex items-center gap-2">
+                       <Terminal className="w-4 h-4 text-indigo-electric" />
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-midnight">Mission Logic</span>
+                    </div>
+                    <label className="cursor-pointer">
+                       <div className="px-3 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[8px] font-bold uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center gap-2">
+                         <Plus className="w-3 h-3" /> {isSyncing ? 'Syncing...' : 'Add Resume'}
+                       </div>
+                       <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleIngress} />
+                    </label>
                  </div>
                  <textarea 
                    value={booleanQuery}
@@ -104,8 +180,45 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
                    className="w-full py-5 bg-midnight text-white rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-midnight/30 hover:bg-indigo-electric transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                  >
                    {isSearchingInternal ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                   Execute Search
+                   Execute Internal Search
                  </button>
+
+                 <div className="pt-4 space-y-4">
+                    <div className="flex flex-col gap-3">
+                       <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 px-1 flex items-center gap-2">
+                         <Filter className="w-3 h-3" /> Search Location (X-Ray)
+                       </label>
+                       <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            placeholder="State" 
+                            className="bg-warm-gray/10 p-3 rounded-xl text-[10px] outline-none" 
+                            value={xRayLocation.state}
+                            onChange={(e) => setXRayLocation({...xRayLocation, state: e.target.value})}
+                          />
+                          <input 
+                            placeholder="Zip" 
+                            className="bg-warm-gray/10 p-3 rounded-xl text-[10px] outline-none" 
+                            value={xRayLocation.zip}
+                            onChange={(e) => setXRayLocation({...xRayLocation, zip: e.target.value})}
+                          />
+                       </div>
+                       <input 
+                         placeholder="Country" 
+                         className="bg-warm-gray/10 p-3 rounded-xl text-[10px] outline-none" 
+                         value={xRayLocation.country}
+                         onChange={(e) => setXRayLocation({...xRayLocation, country: e.target.value})}
+                       />
+                       {showLocationError && (
+                         <p className="text-[8px] font-bold text-coral uppercase text-center animate-pulse">Location Required</p>
+                       )}
+                    </div>
+                    <button 
+                      onClick={handleXRaySearch}
+                      className="w-full py-4 bg-white border-2 border-midnight/5 text-midnight rounded-2xl font-bold text-[9px] uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      <Search className="w-4 h-4" /> Launch X-Ray
+                    </button>
+                 </div>
               </div>
 
               <div className="pt-8 border-t border-midnight/5 space-y-6">
@@ -149,7 +262,7 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
                    <p className="text-[10px] font-bold text-midnight/30 uppercase tracking-[0.4em]">Resolving Boolean Constraints...</p>
                  </div>
                </motion.div>
-             ) : searchResults.length > 0 ? (
+             ) : filteredCandidates.length > 0 ? (
                <motion.div 
                  key="results"
                  initial={{ opacity: 0, y: 20 }}
@@ -157,18 +270,18 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
                  className="space-y-4"
                >
                  <div className="flex justify-between items-center px-4">
-                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-midnight/40">{searchResults.length} Match Found In Archive</h4>
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-midnight/40">{filteredCandidates.length} Match Found In Archive</h4>
                     <button className="text-[10px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-full">
                        <Filter className="w-3 h-3" /> Sort Archive
                     </button>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   {searchResults.map(res => (
+                   {filteredCandidates.map(res => (
                      <div key={res.id} className="bg-white p-8 rounded-[3rem] border border-midnight/5 shadow-sm hover:shadow-xl transition-all cursor-pointer group">
                         <div className="flex justify-between items-start mb-6">
-                           <div className="w-12 h-12 bg-midnight text-white rounded-2xl flex items-center justify-center font-serif font-bold italic text-lg shadow-xl shadow-midnight/10">
-                             {res.name[0]}
-                           </div>
+                            <div className="w-12 h-12 bg-midnight text-white rounded-2xl flex items-center justify-center font-serif font-bold italic text-lg shadow-xl shadow-midnight/10">
+                              {res.name?.[0] || '?'}
+                            </div>
                            <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[8px] font-bold uppercase tracking-widest">
                              94% Neural Match
                            </div>

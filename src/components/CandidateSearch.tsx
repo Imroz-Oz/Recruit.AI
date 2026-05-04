@@ -25,7 +25,7 @@ import {
 import { generateBooleanFromJD, BooleanResponse } from '@/src/services/geminiService';
 import { cn } from '@/src/lib/utils';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface CandidateSearchProps {
@@ -133,81 +133,25 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const fetchTalent = async () => {
-      if (!auth.currentUser) return;
-      setIsSyncing(true);
-      try {
-        const q = query(
-          collection(db, 'candidates'), 
-          where('recruiterId', '==', auth.currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const querySnapshot = await getDocs(q);
-        let fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // If empty, seed some demo data to ensure Selection Orbit is functional
-        if (fetched.length === 0) {
-          const demoTalents = [
-            {
-              recruiterId: auth.currentUser.uid,
-              name: 'Sarah Drasner',
-              title: 'VP of Engineering',
-              score: 98,
-              location: 'Remote',
-              isInternal: true,
-              experience: 15,
-              degree: 'Masters',
-              resumeSnippet: 'Expert in distributed systems, developer experience, and frontend architecture. Led massive engineering teams at high-growth startups.',
-              highlightedMatches: ['Engineering', 'Architecture', 'Teams'],
-              keywords: ['engineering', 'leadership', 'frontend', 'architecture'],
-              createdAt: serverTimestamp()
-            },
-            {
-              recruiterId: auth.currentUser.uid,
-              name: 'Marcus Holloway',
-              title: 'Principal Security Engineer',
-              score: 95,
-              location: 'San Francisco, CA',
-              isInternal: true,
-              experience: 12,
-              degree: 'Bachelors',
-              resumeSnippet: 'Cybersecurity specialist with focus on ethical hacking, network forensics, and cloud infrastructure protection.',
-              highlightedMatches: ['Security', 'Cloud', 'Infrastructure'],
-              keywords: ['security', 'cloud', 'forensics', 'hacking'],
-              createdAt: serverTimestamp()
-            },
-            {
-              recruiterId: auth.currentUser.uid,
-              name: 'Elena Fisher',
-              title: 'Staff Product Designer',
-              score: 92,
-              location: 'New York, NY',
-              isInternal: false,
-              experience: 10,
-              degree: 'BFA',
-              resumeSnippet: 'Senior designer focused on complex UX patterns, design systems, and interaction design for fintech platforms.',
-              highlightedMatches: ['UX', 'Design Systems', 'Fintech'],
-              keywords: ['design', 'ux', 'fintech', 'systems'],
-              createdAt: serverTimestamp()
-            }
-          ];
-          
-          const created = await Promise.all(demoTalents.map(async (t) => {
-            const docRef = await addDoc(collection(db, 'candidates'), t);
-            return { id: docRef.id, ...t };
-          }));
-          fetched = created;
-        }
+    if (!auth.currentUser) return;
 
-        setTalentPool(fetched);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'candidates');
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-    fetchTalent();
-  }, []);
+    // Global Talent Stream (No recruiterId filter for shared database)
+    const q = query(
+      collection(db, 'candidates'), 
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTalentPool(fetched);
+      setIsSyncing(false);
+    }, (error) => {
+      console.error('Candidate sync error:', error);
+      handleFirestoreError(error, OperationType.LIST, 'candidates');
+    });
+
+    return () => unsubscribe();
+  }, [auth.currentUser]);
 
   const [matches, setMatches] = useState<any[]>([]);
 

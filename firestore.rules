@@ -41,6 +41,10 @@ service cloud.firestore {
              data.title is string && data.title.size() <= 200;
     }
 
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // Master Gate Patterns
     
     // User Profiles
@@ -59,13 +63,13 @@ service cloud.firestore {
       }
     }
 
-    // Internal Talent Pool
+    // Internal Talent Pool (Shared Repository)
     match /candidates/{candidateId} {
-      allow read: if isSignedIn() && existing().recruiterId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.recruiterId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidCandidate(incoming());
-      allow update: if isSignedIn() && existing().recruiterId == request.auth.uid && isValidCandidate(incoming());
-      allow delete: if isSignedIn() && existing().recruiterId == request.auth.uid;
+      allow update: if isSignedIn() && isValidCandidate(incoming()) && (existing().recruiterId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().recruiterId == request.auth.uid || isAdmin());
     }
 
     // Job Feed

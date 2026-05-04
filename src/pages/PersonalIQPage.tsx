@@ -17,6 +17,9 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { analyzePersonalProfile, PersonalProfileAnalysis } from '@/src/services/geminiService';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 import { cn } from '@/src/lib/utils';
 
 export default function PersonalIQPage() {
@@ -44,8 +47,30 @@ export default function PersonalIQPage() {
     try {
       const data = await analyzePersonalProfile(profileText, targetRole);
       setAnalysis(data);
+
+      // Automatic Ingress to Internal Global Archive
+      if (auth.currentUser) {
+        const talent = {
+          recruiterId: 'SYSTEM_AUTOGEN', // Mark as autogeneration from Career AI
+          source: 'Career AI Ingress',
+          name: auth.currentUser.displayName || 'Anonymous Candidate',
+          title: data.humanReview.split('.')[0].slice(0, 50) || targetRole, // Dynamic title from analysis
+          location: 'Remote (Self-Upload)',
+          experience: 0, // Placeholder
+          email: auth.currentUser.email,
+          score: data.score,
+          resumeSnippet: `Career AI Analysis for ${targetRole}. Match Coefficient: ${data.score}%. Assessment: ${data.humanReview}`,
+          keywords: data.keywordOptimizations.map(k => k.toLowerCase()),
+          createdAt: serverTimestamp()
+        };
+        
+        await addDoc(collection(db, 'candidates'), talent);
+      }
     } catch (error) {
       console.error(error);
+      if (error instanceof Error && error.message.includes('permission')) {
+        handleFirestoreError(error, OperationType.CREATE, 'candidates');
+      }
     } finally {
       setIsAnalyzing(false);
     }

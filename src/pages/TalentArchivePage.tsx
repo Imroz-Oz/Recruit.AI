@@ -18,10 +18,13 @@ import {
   Filter,
   CheckCircle2,
   X,
-  Target
+  Target,
+  Plus,
+  Rocket,
+  Brain
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { cn } from '@/src/lib/utils';
 import { generateCandidateIntelligence } from '@/src/services/aiService';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
@@ -42,27 +45,68 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
   const [showLocationError, setShowLocationError] = useState(false);
+  
+  // New State for Manual Ingress
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newCandidate, setNewCandidate] = useState({
+    name: '',
+    title: '',
+    location: '',
+    experience: 0,
+    skills: '',
+    email: ''
+  });
 
   useEffect(() => {
-    fetchTalent();
-  }, []);
-
-  const fetchTalent = async () => {
-    if (!auth.currentUser) return;
-    setIsLoading(true);
-    try {
-      const q = query(
-        collection(db, 'candidates'),
-        where('recruiterId', '==', auth.currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(fetched);
-    } catch (error) {
-      console.error('Error fetching talent:', error);
-    } finally {
+    if (!auth.currentUser) {
       setIsLoading(false);
+      return;
+    }
+
+    // Shared Global Talent Stream (No recruiterId filter for shared database)
+    const q = query(
+      collection(db, 'candidates'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCandidates(fetched);
+      setIsLoading(false);
+    }, (error) => {
+      console.error('Real-time sync error:', error);
+      handleFirestoreError(error, OperationType.GET, 'candidates');
+    });
+
+    return () => unsubscribe();
+  }, [auth.currentUser]);
+
+  const handleManualAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCandidate.name || !newCandidate.title || !auth.currentUser) return;
+
+    setIsSyncing(true);
+    try {
+      const talent = {
+        recruiterId: auth.currentUser.uid,
+        name: newCandidate.name,
+        title: newCandidate.title,
+        location: newCandidate.location,
+        experience: Number(newCandidate.experience),
+        email: newCandidate.email,
+        score: 95,
+        resumeSnippet: `Direct high-fidelity ingress. Verified professional index for ${newCandidate.name}.`,
+        keywords: newCandidate.skills.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'candidates'), talent);
+      setIsAddModalOpen(false);
+      setNewCandidate({ name: '', title: '', location: '', experience: 0, skills: '', email: '' });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'candidates');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -218,6 +262,12 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
           <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Private, High-Fidelity Talent Repository</p>
         </div>
         <div className="flex gap-4">
+           <button 
+             onClick={() => setIsAddModalOpen(true)}
+             className="px-6 py-3 bg-indigo-electric text-white rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-midnight transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+           >
+             <Plus className="w-3.5 h-3.5" /> Manual Ingress
+           </button>
            <button 
              onClick={handleDeduplicate}
              className="px-6 py-3 bg-warm-gray text-midnight/60 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2"
@@ -460,6 +510,114 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
           </table>
         </div>
       </div>
+
+      {/* Manual Add Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-midnight/80 backdrop-blur-md z-[110] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white w-full max-w-xl rounded-[3.5rem] p-12 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-electric/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="absolute top-8 right-8 w-10 h-10 bg-warm-gray rounded-full flex items-center justify-center hover:bg-neutral-200 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mb-8">
+                <h3 className="text-3xl font-serif font-bold italic text-midnight">Mission Ingress</h3>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-midnight/30 mt-2">Add a permanent asset to the global talent cloud</p>
+              </div>
+
+              <form onSubmit={handleManualAdd} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Full Name</label>
+                    <input 
+                      required
+                      value={newCandidate.name}
+                      onChange={e => setNewCandidate({...newCandidate, name: e.target.value})}
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      placeholder="e.g. Satoshi Nakamoto"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Current Title</label>
+                    <input 
+                      required
+                      value={newCandidate.title}
+                      onChange={e => setNewCandidate({...newCandidate, title: e.target.value})}
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      placeholder="e.g. Lead Blockchain Eng"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Location</label>
+                    <input 
+                      value={newCandidate.location}
+                      onChange={e => setNewCandidate({...newCandidate, location: e.target.value})}
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      placeholder="e.g. Tokyo, JP"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Years Experience</label>
+                    <input 
+                      type="number"
+                      value={newCandidate.experience}
+                      onChange={e => setNewCandidate({...newCandidate, experience: Number(e.target.value)})}
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Primary Email</label>
+                  <input 
+                    type="email"
+                    value={newCandidate.email}
+                    onChange={e => setNewCandidate({...newCandidate, email: e.target.value})}
+                    className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                    placeholder="satoshi@bitcoin.org"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Key Tags (Comma separated)</label>
+                  <textarea 
+                    value={newCandidate.skills}
+                    onChange={e => setNewCandidate({...newCandidate, skills: e.target.value})}
+                    className="w-full h-24 px-5 py-3.5 bg-warm-gray/50 rounded-[2rem] border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-medium transition-all resize-none"
+                    placeholder="Go, Rust, Distributed Systems, Cryptography"
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={isSyncing}
+                  className="w-full py-5 bg-midnight text-white rounded-[2rem] font-bold text-xs uppercase tracking-[0.2em] shadow-2xl shadow-midnight/20 hover:bg-indigo-electric transition-all flex items-center justify-center gap-3"
+                >
+                  {isSyncing ? <Zap className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5 text-coral" />}
+                  Finalize Mission Ingress
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Profile Detail Overlay */}
       <AnimatePresence>

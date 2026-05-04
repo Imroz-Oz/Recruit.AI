@@ -20,6 +20,9 @@ import {
   Brain
 } from 'lucide-react';
 import { analyzeMatch, analyzeMultipleResumes, AnalysisResponse, MultiResumeAnalysis } from '@/src/services/geminiService';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 import { cn } from '@/src/lib/utils';
 
 type Tab = 'single' | 'multi' | 'market';
@@ -47,6 +50,22 @@ export default function IntelligenceHubPage() {
     try {
       const data = await analyzeMatch(resume, jd);
       setSingleAnalysis(data);
+
+      // Automatic Ingress 1:1
+      if (auth.currentUser) {
+        const talent = {
+          recruiterId: auth.currentUser.uid,
+          source: 'Intelligence Hub (1:1)',
+          name: 'Target Candidate',
+          title: jd.split('.')[0].slice(0, 50) || 'Analyzed Profile',
+          location: 'Global Hub',
+          score: data.score,
+          resumeSnippet: resume.slice(0, 500),
+          keywords: data.strengths.map(s => s.toLowerCase()),
+          createdAt: serverTimestamp()
+        };
+        await addDoc(collection(db, 'candidates'), talent);
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -60,6 +79,25 @@ export default function IntelligenceHubPage() {
     try {
       const data = await analyzeMultipleResumes(multiResumes, jd);
       setMultiResults(data);
+
+      // Automatic Ingress Multi
+      if (auth.currentUser) {
+        await Promise.all(multiResumes.map(async (r, i) => {
+          const pick = data.topPicks.find(p => p.candidateName.includes(`Resume_${i+1}`));
+          const talent = {
+            recruiterId: auth.currentUser?.uid,
+            source: 'Intelligence Hub (Multi)',
+            name: pick?.candidateName || `Batch Candidate ${i+1}`,
+            title: jd.split('.')[0].slice(0, 50) || 'Analyzed Profile',
+            location: 'Global Hub Batch',
+            score: pick?.score || 85,
+            resumeSnippet: r.slice(0, 500),
+            keywords: pick?.recommendations.map(re => re.toLowerCase()) || [],
+            createdAt: serverTimestamp()
+          };
+          await addDoc(collection(db, 'candidates'), talent);
+        }));
+      }
     } catch (error) {
       console.error(error);
     } finally {

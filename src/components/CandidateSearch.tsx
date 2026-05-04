@@ -103,19 +103,21 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
     const locTerms = [geoParams.city, geoParams.state, geoParams.country, geoParams.zip].filter(Boolean);
     const locationString = locTerms.length > 0 ? ` "${locTerms.join(' ')}"` : '';
     
-    // Use groupings to prevent Google from splitting terms
-    const fullQuery = encodeURIComponent(`${finalQuery}${locationString}`);
-    
     let url = '';
+    const baseQuery = `${finalQuery}${locationString}`;
+    
     switch(platform) {
       case 'dribbble':
-        url = `https://www.google.com/search?q=site:dribbble.com+(${fullQuery})`;
+        url = `https://www.google.com/search?q=site:dribbble.com "${baseQuery}" -jobs -hiring`;
         break;
       case 'coroflot':
-        url = `https://www.google.com/search?q=site:coroflot.com+(${fullQuery})`;
+        url = `https://www.google.com/search?q=site:coroflot.com/people "${baseQuery}"`;
         break;
       default:
-        url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+        // Enhanced LinkedIn X-Ray Strategy
+        // -intitle:profiles and -inurl:dir removes generic directory pages
+        const linkedinFilter = 'site:linkedin.com/in OR site:linkedin.com/pub -intitle:profiles -inurl:dir -inurl:groups';
+        url = `https://www.google.com/search?q=${encodeURIComponent(`${linkedinFilter} ${baseQuery}`)}`;
     }
     
     window.open(url, '_blank');
@@ -465,13 +467,13 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                    <div className="flex items-center justify-between mb-2">
                      <div className="flex items-center gap-2">
                        <Terminal className="w-4 h-4 text-indigo-electric" />
-                       <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Manual Boolean String</span>
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Manual Precision Builder</span>
                      </div>
                    </div>
                    <textarea
                     value={manualQuery}
                     onChange={(e) => setManualQuery(e.target.value)}
-                    placeholder='e.g. ("Java" OR "JDK") AND ("AWS" OR "Cloud") AND "Microservices"...'
+                    placeholder='Define your sourcing vector or edit the generated constraints...'
                     className="w-full h-48 p-8 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-xs font-mono leading-relaxed resize-none text-indigo-200 placeholder:text-white/10"
                   />
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

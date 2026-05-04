@@ -39,11 +39,11 @@ interface CandidateSearchProps {
 export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }: CandidateSearchProps) {
   const [jd, setJd] = useState('');
   const [manualQuery, setManualQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<'ai' | 'manual'>('ai');
+  const [searchMode, setSearchMode] = useState<'orbit' | 'xray'>('orbit');
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<BooleanResponse | null>(null);
   const [editableQuery, setEditableQuery] = useState('');
-  const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
+  const [geoParams, setGeoParams] = useState({ city: '', state: '', country: '', zip: '', radius: '25' });
   const [showLocationError, setShowLocationError] = useState(false);
   
   // Advanced Filters
@@ -51,7 +51,6 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [expLevel, setExpLevel] = useState<'entry' | 'mid' | 'senior' | 'any'>('any');
   const [skillQuery, setSkillQuery] = useState('');
   const [degree, setDegree] = useState('Any Degree');
-  const [location, setLocation] = useState({ city: '', state: '', country: '', zip: '', radius: '25' });
   const [industry, setIndustry] = useState('');
   const [gradYear, setGradYear] = useState('');
   const [companies, setCompanies] = useState('');
@@ -60,7 +59,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
 
   // Sync Boolean with Filters
   useEffect(() => {
-    if (result) {
+    if (searchMode === 'orbit' && result) {
       let baseQuery = result.query;
       
       // Append filter logic if selected
@@ -80,30 +79,44 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
       }
 
       setEditableQuery(baseQuery);
+    } else if (searchMode === 'xray') {
+      // Manual Builder Logic
+      let parts = [];
+      if (title.trim()) parts.push(`"${title.trim()}"`);
+      if (skillQuery.trim()) {
+        const skills = skillQuery.split(',').map(s => `"${s.trim()}"`).join(' AND ');
+        parts.push(`(${skills})`);
+      }
+      if (industry.trim()) parts.push(`"${industry.trim()}"`);
+      
+      if (parts.length > 0) {
+        setManualQuery(parts.join(' AND '));
+      }
     }
-  }, [result, expLevel, degree, skillQuery]);
+  }, [result, expLevel, degree, skillQuery, searchMode, title, industry]);
 
-  useEffect(() => {
-    if (result && !editableQuery) {
-      setEditableQuery(result.query);
-    }
-  }, [result]);
+  const handleXRaySearch = (platform: 'linkedin' | 'dribbble' | 'coroflot' = 'linkedin') => {
+    const finalQuery = searchMode === 'orbit' ? editableQuery : manualQuery;
+    if (!finalQuery.trim()) return;
 
-  const handleXRaySearch = () => {
-    const hasLocation = xRayLocation.country || xRayLocation.state || xRayLocation.zip;
+    // Smart location construction
+    const locTerms = [geoParams.city, geoParams.state, geoParams.country, geoParams.zip].filter(Boolean);
+    const locationString = locTerms.length > 0 ? ` "${locTerms.join(' ')}"` : '';
     
-    if (!hasLocation) {
-      setShowLocationError(true);
-      return;
-    }
-
-    setShowLocationError(false);
-    const query = editableQuery || manualQuery;
-    const locationString = [xRayLocation.country, xRayLocation.state, xRayLocation.zip].filter(Boolean).join(' ');
-    const fullQuery = encodeURIComponent(`${query} "${locationString}"`);
+    // Use groupings to prevent Google from splitting terms
+    const fullQuery = encodeURIComponent(`${finalQuery}${locationString}`);
     
-    // Classic LinkedIn X-Ray string
-    const url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+    let url = '';
+    switch(platform) {
+      case 'dribbble':
+        url = `https://www.google.com/search?q=site:dribbble.com+(${fullQuery})`;
+        break;
+      case 'coroflot':
+        url = `https://www.google.com/search?q=site:coroflot.com+(${fullQuery})`;
+        break;
+      default:
+        url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+    }
     
     window.open(url, '_blank');
   };
@@ -139,7 +152,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
 
   const handleSuggestionSelect = (field: string, value: string) => {
     if (field === 'title') setTitle(value);
-    else if (field === 'city') setLocation({ ...location, city: value });
+    else if (field === 'city') setGeoParams({ ...geoParams, city: value });
     else if (field === 'industry') setIndustry(value);
     else if (field === 'companies') setCompanies(value);
     setActiveSuggestionField(null);
@@ -189,12 +202,12 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
 
   const handleGenerate = async () => {
-    if (searchMode === 'ai' && !jd.trim()) return;
-    if (searchMode === 'manual' && !manualQuery.trim()) return;
+    if (searchMode === 'orbit' && !jd.trim()) return;
+    if (searchMode === 'xray' && !manualQuery.trim()) return;
 
     setIsGenerating(true);
     try {
-      if (searchMode === 'ai') {
+      if (searchMode === 'orbit') {
         const data = await generateBooleanFromJD(jd);
         setResult(data);
         
@@ -257,7 +270,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
         setMatches(resultsToReturn);
         onMatchesFound(resultsToReturn);
       } else {
-        // Manual Boolean Search Logic
+        // X-Ray / Manual Boolean Search Logic
         const keywords = manualQuery.replace(/[()"]/g, '').split(/\s+OR\s+|\s+AND\s+/).map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
         const found = talentPool.filter(c => {
           const text = (c.name + ' ' + c.title + ' ' + c.resumeSnippet + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
@@ -265,7 +278,16 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
         });
         setMatches(found);
         onMatchesFound(found);
-        setResult({ query: manualQuery, suggestedTitles: [title || 'Manual Search Result'] });
+        setResult({ 
+          query: manualQuery, 
+          suggestedTitles: [title || 'Manual Search Result'],
+          roleBlueprint: {
+            software: skillQuery.split(',').map(s => s.trim()),
+            skillSet: [title, industry, ...skillQuery.split(',')].filter(Boolean).slice(0, 10),
+            industry: [industry].filter(Boolean),
+            brief: `Manual sourcing session for ${title || 'unspecified role'} in ${geoParams.city || 'global'} location.`
+          }
+        });
       }
     } catch (error) {
       console.error(error);
@@ -365,22 +387,22 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
       <div className="flex justify-center mb-8">
         <div className="bg-white p-1 rounded-full border border-midnight/5 shadow-sm flex gap-1">
           <button 
-            onClick={() => setSearchMode('ai')}
+            onClick={() => setSearchMode('orbit')}
             className={cn(
               "px-8 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
-              searchMode === 'ai' ? "bg-midnight text-white" : "text-midnight/40 hover:text-midnight"
+              searchMode === 'orbit' ? "bg-midnight text-white" : "text-midnight/40 hover:text-midnight"
             )}
           >
-            <Sparkles className="w-3.5 h-3.5" /> AI Assisted IQ
+            <Sparkles className="w-3.5 h-3.5" /> Orbit AI Intelligence
           </button>
           <button 
-            onClick={() => setSearchMode('manual')}
+            onClick={() => setSearchMode('xray')}
             className={cn(
               "px-8 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
-              searchMode === 'manual' ? "bg-indigo-electric text-white" : "text-midnight/40 hover:text-midnight"
+              searchMode === 'xray' ? "bg-indigo-electric text-white" : "text-midnight/40 hover:text-midnight"
             )}
           >
-            <Terminal className="w-3.5 h-3.5" /> Manual Boolean
+            <Terminal className="w-3.5 h-3.5" /> Mission X-Ray
           </button>
         </div>
       </div>
@@ -392,16 +414,16 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
             <div className="flex items-center gap-4">
               <div className={cn(
                 "w-12 h-12 rounded-2xl flex items-center justify-center text-white transition-colors duration-500",
-                searchMode === 'ai' ? "bg-coral" : "bg-indigo-electric"
+                searchMode === 'orbit' ? "bg-coral" : "bg-indigo-electric"
               )}>
-                {searchMode === 'ai' ? <FileText className="w-6 h-6" /> : <Terminal className="w-6 h-6" />}
+                {searchMode === 'orbit' ? <FileText className="w-6 h-6" /> : <Terminal className="w-6 h-6" />}
               </div>
               <div>
                 <h3 className="text-2xl font-serif font-bold italic">
-                  {searchMode === 'ai' ? 'JD Intelligence' : 'Manual Sourcing Builder'}
+                  {searchMode === 'orbit' ? 'Job Bio Index' : 'Command Center (Manual)'}
                 </h3>
                 <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
-                  {searchMode === 'ai' ? 'Paste JD to generate boolean logic' : 'Direct boolean string & manual filter matching'}
+                  {searchMode === 'orbit' ? 'Extract mission parameters from JD' : 'Configure manual boolean logic & X-Ray vectors'}
                 </p>
               </div>
             </div>
@@ -423,43 +445,75 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
               )}
               <label className="cursor-pointer px-4 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
                 <Upload className={cn("w-3 h-3", isSyncing && "animate-bounce")} /> 
-                {isSyncing ? 'Syncing...' : 'Bulk Import Resumes'}
+                {isSyncing ? 'Syncing...' : 'Bulk Import'}
                 <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" multiple onChange={handleTalentUpload} />
-              </label>
-              <label className="cursor-pointer px-4 py-1.5 bg-warm-gray text-midnight/60 rounded-full border border-midnight/5 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
-                <Upload className="w-3 h-3" /> Upload JD
-                <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileUpload} />
               </label>
             </div>
           </div>
 
           <div className="relative">
-            {searchMode === 'ai' ? (
+            {searchMode === 'orbit' ? (
               <textarea
                 value={jd}
                 onChange={(e) => setJd(e.target.value)}
                 placeholder="Paste the full job description here..."
-                className="w-full h-64 p-8 bg-warm-gray border border-transparent rounded-[2.5rem] focus:bg-white focus:border-coral/20 outline-none transition-all text-sm font-medium leading-relaxed resize-none"
+                className="w-full h-80 p-8 bg-warm-gray border border-transparent rounded-[2.5rem] focus:bg-white focus:border-coral/20 outline-none transition-all text-sm font-medium leading-relaxed resize-none"
               />
             ) : (
-              <textarea
-                value={manualQuery}
-                onChange={(e) => setManualQuery(e.target.value)}
-                placeholder='e.g. ("Java" OR "JDK") AND ("AWS" OR "Cloud") AND "Microservices"...'
-                className="w-full h-64 p-8 bg-warm-gray border border-transparent rounded-[2.5rem] focus:bg-white focus:border-indigo-electric/20 outline-none transition-all text-sm font-mono leading-relaxed resize-none"
-              />
+              <div className="space-y-6">
+                <div className="p-8 bg-midnight rounded-[2.5rem] shadow-2xl space-y-6">
+                   <div className="flex items-center justify-between mb-2">
+                     <div className="flex items-center gap-2">
+                       <Terminal className="w-4 h-4 text-indigo-electric" />
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Manual Boolean String</span>
+                     </div>
+                   </div>
+                   <textarea
+                    value={manualQuery}
+                    onChange={(e) => setManualQuery(e.target.value)}
+                    placeholder='e.g. ("Java" OR "JDK") AND ("AWS" OR "Cloud") AND "Microservices"...'
+                    className="w-full h-48 p-8 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-xs font-mono leading-relaxed resize-none text-indigo-200 placeholder:text-white/10"
+                  />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <button 
+                      onClick={() => handleXRaySearch('linkedin')}
+                      className="py-4 bg-white/5 hover:bg-indigo-electric text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
+                    >
+                      <Search className="w-3.5 h-3.5" /> LinkedIn X-Ray
+                    </button>
+                    <button 
+                      onClick={() => handleXRaySearch('dribbble')}
+                      className="py-4 bg-white/5 hover:bg-pink-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
+                    >
+                      <Globe className="w-3.5 h-3.5" /> Dribbble
+                    </button>
+                    <button 
+                      onClick={() => handleXRaySearch('coroflot')}
+                      className="py-4 bg-white/5 hover:bg-orange-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
+                    >
+                      <Monitor className="w-3.5 h-3.5" /> Coroflot
+                    </button>
+                    <button 
+                      onClick={handleGenerate}
+                      className="py-4 bg-white/10 hover:bg-white text-white hover:text-midnight rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
+                    >
+                      <Users className="w-3.5 h-3.5" /> Search Internal
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || (searchMode === 'ai' ? !jd.trim() : !manualQuery.trim())}
-              className={cn(
-                "absolute bottom-6 right-6 px-10 py-4 text-white rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all shadow-2xl flex items-center gap-3 disabled:opacity-50",
-                searchMode === 'ai' ? "bg-midnight hover:bg-coral shadow-midnight/20" : "bg-indigo-electric hover:bg-midnight shadow-indigo-500/20"
-              )}
-            >
-              {isGenerating ? <Zap className="w-4 h-4 animate-spin" /> : (searchMode === 'ai' ? <Sparkles className="w-4 h-4" /> : <Search className="w-4 h-4" />)}
-              {isGenerating ? 'Processing...' : (searchMode === 'ai' ? 'Activate Intelligence Search' : 'Run Manual Search')}
-            </button>
+            
+            {searchMode === 'orbit' && (
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !jd.trim()}
+                className="absolute bottom-6 right-6 px-10 py-4 bg-midnight hover:bg-coral text-white rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all shadow-2xl flex items-center gap-3 disabled:opacity-50"
+              >
+                {isGenerating ? <Zap className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isGenerating ? 'Processing...' : 'Activate AI Orbit'}
+              </button>
+            )}
           </div>
         </section>
 
@@ -533,12 +587,12 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <input 
-                    value={location.city} 
+                    value={geoParams.city} 
                     onChange={(e) => {
-                      setLocation({...location, city: e.target.value});
+                      setGeoParams({...geoParams, city: e.target.value});
                       updateSuggestions('city', e.target.value);
                     }} 
-                    onFocus={() => updateSuggestions('city', location.city)}
+                    onFocus={() => updateSuggestions('city', geoParams.city)}
                     onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
                     placeholder="City" 
                     className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
@@ -564,13 +618,13 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                     )}
                   </AnimatePresence>
                 </div>
-                <input value={location.zip} onChange={(e) => setLocation({...location, zip: e.target.value})} placeholder="Zip Code" className="p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
+                <input value={geoParams.zip} onChange={(e) => setGeoParams({...geoParams, zip: e.target.value})} placeholder="Zip Code" className="p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
               </div>
               <div className="flex items-center gap-2 px-3 py-1 bg-warm-gray rounded-xl">
                  <span className="text-[9px] font-bold text-midnight/40 w-12 shrink-0">Radius</span>
                  <select 
-                   value={location.radius} 
-                   onChange={(e) => setLocation({...location, radius: e.target.value})} 
+                   value={geoParams.radius} 
+                   onChange={(e) => setGeoParams({...geoParams, radius: e.target.value})} 
                    className="flex-1 bg-transparent text-[10px] font-bold text-indigo-electric outline-none cursor-pointer p-3"
                  >
                    <option value="10">10 Miles</option>
@@ -734,43 +788,58 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                   <div className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4">
                     <div className="flex justify-between items-center px-1">
                       <h5 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5" /> Target Location (Required for X-Ray)
+                        <MapPin className="w-3.5 h-3.5" /> Geographic Precision (X-Ray Overlay)
                       </h5>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
                        <input 
-                         value={xRayLocation.country}
-                         onChange={(e) => setXRayLocation({...xRayLocation, country: e.target.value})}
-                         placeholder="Country"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                         value={geoParams.city}
+                         onChange={(e) => setGeoParams({...geoParams, city: e.target.value})}
+                         placeholder="City"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
                        />
                        <input 
-                         value={xRayLocation.state}
-                         onChange={(e) => setXRayLocation({...xRayLocation, state: e.target.value})}
+                         value={geoParams.state}
+                         onChange={(e) => setGeoParams({...geoParams, state: e.target.value})}
                          placeholder="State"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
                        />
                        <input 
-                         value={xRayLocation.zip}
-                         onChange={(e) => setXRayLocation({...xRayLocation, zip: e.target.value})}
+                         value={geoParams.country}
+                         onChange={(e) => setGeoParams({...geoParams, country: e.target.value})}
+                         placeholder="Country"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
+                       />
+                       <input 
+                         value={geoParams.zip}
+                         onChange={(e) => setGeoParams({...geoParams, zip: e.target.value})}
                          placeholder="Zip"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
                        />
                     </div>
-                    {showLocationError && (
-                      <p className="text-[8px] font-bold text-coral uppercase tracking-widest px-1 animate-pulse">
-                        Please provide at least one location parameter (Country, State, or Zip)
-                      </p>
-                    )}
                   </div>
                   
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <button 
-                      onClick={handleXRaySearch}
+                      onClick={() => handleXRaySearch('linkedin')}
                       className="py-5 bg-indigo-electric hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5 shadow-xl shadow-indigo-500/10"
                     >
-                      <Search className="w-3.5 h-3.5" /> Launch LinkedIn X-Ray Intelligence
+                      <Search className="w-3.5 h-3.5" /> LinkedIn X-Ray Intelligence
                     </button>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => handleXRaySearch('dribbble')}
+                        className="py-5 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5"
+                      >
+                        <Globe className="w-3.5 h-3.5" /> Dribbble Vector
+                      </button>
+                      <button 
+                        onClick={() => handleXRaySearch('coroflot')}
+                        className="py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5"
+                      >
+                        <Monitor className="w-3.5 h-3.5" /> Coroflot Search
+                      </button>
+                    </div>
                   </div>
                 </div>
 

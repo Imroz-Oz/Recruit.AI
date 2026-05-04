@@ -39,6 +39,7 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
   const [isSearchingInternal, setIsSearchingInternal] = useState(false);
   const [searchResults, setSearchResults] = useState<Candidate[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [uploadStats, setUploadStats] = useState({ progress: 0, total: 0, current: 0, eta: '' });
   const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
   const [showLocationError, setShowLocationError] = useState(false);
   const [allCandidates, setAllCandidates] = useState<Candidate[]>([]);
@@ -67,9 +68,33 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
     const files = e.target.files;
     if (!files || files.length === 0 || !auth.currentUser) return;
 
+    const fileList = Array.from(files as unknown as File[]);
     setIsSyncing(true);
+    setUploadStats({ progress: 0, total: fileList.length, current: 0, eta: 'Calculating...' });
+
+    const startTime = Date.now();
+    
     try {
-      const results = await Promise.all(Array.from(files as unknown as File[]).map(async (file) => {
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        
+        // Progress update
+        const currentProgress = Math.round(((i) / fileList.length) * 100);
+        
+        // ETA
+        const elapsed = (Date.now() - startTime) / 1000;
+        const perFile = elapsed / (i || 1);
+        const remaining = fileList.length - i;
+        const etaSeconds = Math.round(remaining * perFile);
+        const etaText = etaSeconds > 60 ? `${Math.floor(etaSeconds / 60)}m ${etaSeconds % 60}s` : `${etaSeconds}s`;
+
+        setUploadStats({ 
+          progress: currentProgress, 
+          total: fileList.length, 
+          current: i + 1,
+          eta: i === 0 ? 'Starting...' : etaText
+        });
+
         const reader = new FileReader();
         const textPromise = new Promise<string>((resolve) => {
           reader.onload = (ev) => resolve(ev.target?.result as string || '');
@@ -89,14 +114,25 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
           createdAt: serverTimestamp()
         };
         
-        const docRef = await addDoc(collection(db, 'candidates'), talent);
-        return { id: docRef.id, ...talent };
-      }));
+        await addDoc(collection(db, 'candidates'), talent);
+      }
       
-      console.log('Ingressed:', results.length, 'candidates');
+      setUploadStats(prev => ({ ...prev, progress: 100, eta: 'Success!' }));
+
+      // Success Notification
+      const notification = document.createElement('div');
+      notification.innerHTML = `
+        <div style="position: fixed; top: 20px; right: 20px; background: #6366f1; color: white; padding: 16px 24px; border-radius: 16px; font-weight: bold; font-family: sans-serif; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3); z-index: 9999; animation: slideIn 0.3s ease-out;">
+          <style>@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }</style>
+          ✓ ${fileList.length} Intelligence Assets Synchronized
+        </div>
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 4000);
+
+      setTimeout(() => setIsSyncing(false), 2000);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'candidates');
-    } finally {
       setIsSyncing(false);
     }
   };
@@ -161,12 +197,25 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
                        <Terminal className="w-4 h-4 text-indigo-electric" />
                        <span className="text-[10px] font-bold uppercase tracking-widest text-midnight">Mission Logic</span>
                     </div>
-                    <label className="cursor-pointer">
-                       <div className="px-3 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[8px] font-bold uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center gap-2">
-                         <Plus className="w-3 h-3" /> {isSyncing ? 'Syncing...' : 'Add Resume'}
-                       </div>
-                       <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleIngress} />
-                    </label>
+                    <div className="flex items-center gap-3">
+                       {isSyncing && uploadStats.total > 0 && (
+                         <div className="flex flex-col items-end mr-2">
+                            <span className="text-[7px] font-black text-indigo-electric uppercase">ETA: {uploadStats.eta}</span>
+                            <div className="w-16 h-1 bg-indigo-100 rounded-full mt-1 overflow-hidden">
+                               <motion.div 
+                                 animate={{ width: `${uploadStats.progress}%` }}
+                                 className="h-full bg-indigo-electric"
+                               />
+                            </div>
+                         </div>
+                       )}
+                       <label className="cursor-pointer">
+                          <div className="px-3 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[8px] font-bold uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center gap-2">
+                            <Plus className="w-3 h-3" /> {isSyncing ? 'Syncing...' : 'Add Resume'}
+                          </div>
+                          <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleIngress} />
+                       </label>
+                    </div>
                  </div>
                  <textarea 
                    value={booleanQuery}

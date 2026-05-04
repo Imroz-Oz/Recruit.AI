@@ -65,6 +65,9 @@ export default function IntelligenceHubPage() {
           createdAt: serverTimestamp()
         };
         await addDoc(collection(db, 'candidates'), talent);
+        
+        // Silent Internal Notification
+        console.log('Intelligence Hub: Bio-Asset Synchronized to Archive');
       }
     } catch (error) {
       console.error(error);

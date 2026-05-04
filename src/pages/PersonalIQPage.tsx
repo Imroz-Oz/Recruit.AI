@@ -65,6 +65,9 @@ export default function PersonalIQPage() {
         };
         
         await addDoc(collection(db, 'candidates'), talent);
+        
+        // Silent Internal Notification
+        console.log('Presence Lab: Profile Asset Synchronized to Archive');
       }
     } catch (error) {
       console.error(error);

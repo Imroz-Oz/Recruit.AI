@@ -13,6 +13,12 @@ export interface AnalysisResponse {
 export interface BooleanResponse {
   query: string;
   suggestedTitles: string[];
+  roleBlueprint: {
+    software: string[];
+    skillSet: string[];
+    industry: string[];
+    brief: string;
+  };
 }
 
 export interface PersonalProfileAnalysis {
@@ -66,15 +72,28 @@ export const generateBooleanFromJD = async (jd: string): Promise<BooleanResponse
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `
-      Based on this job description, create a highly optimized LinkedIn/JobDiva Boolean string.
-      Also, suggest 10 alternate yet relevant job titles that a recruiter should search for to find this profile, as titles vary across companies.
-      
-      JD: ${jd}
-      
+      As a Lead Tech Recruiter, analyze this Job Description (JD):
+      "${jd}"
+
+      Tasks:
+      1. Generate a high-fidelity Boolean Search String (e.g., ("Software Engineer" OR "Developer") AND (React OR Vue) AND (Node.js OR Python)).
+      2. Suggest 10 alternate yet relevant job titles that a recruiter should search for to find this profile.
+      3. Generate a "Role Blueprint":
+         - Software: Map all technological stacks and tools mentioned.
+         - Skill Set: Core technical and soft skills.
+         - Industry: The domain/vertical context.
+         - Brief: A 2-sentence veteran recruiter's take on what this role REALLY is.
+
       Return JSON only:
       {
         "query": "string",
-        "suggestedTitles": ["title1", "title2", ...]
+        "suggestedTitles": ["title1", "title2", ...],
+        "roleBlueprint": {
+          "software": ["tool1", "stack1"...],
+          "skillSet": ["skill1", "skill2"...],
+          "industry": ["vertical1"...],
+          "brief": "recruiter summary"
+        }
       }
     `,
     config: {

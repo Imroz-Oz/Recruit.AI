@@ -20,7 +20,10 @@ import {
   Info,
   X,
   Upload,
-  DollarSign
+  DollarSign,
+  Brain,
+  Monitor,
+  Globe
 } from 'lucide-react';
 import { generateBooleanFromJD, BooleanResponse } from '@/src/services/geminiService';
 import { cn } from '@/src/lib/utils';
@@ -43,8 +46,45 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
   const [showLocationError, setShowLocationError] = useState(false);
   
+  // Advanced Filters
+  const [title, setTitle] = useState('');
+  const [expLevel, setExpLevel] = useState<'entry' | 'mid' | 'senior' | 'any'>('any');
+  const [skillQuery, setSkillQuery] = useState('');
+  const [degree, setDegree] = useState('Any Degree');
+  const [location, setLocation] = useState({ city: '', state: '', country: '', zip: '', radius: '25' });
+  const [industry, setIndustry] = useState('');
+  const [gradYear, setGradYear] = useState('');
+  const [companies, setCompanies] = useState('');
+  const [relocation, setRelocation] = useState(false);
+  const [certifications, setCertifications] = useState('');
+
+  // Sync Boolean with Filters
   useEffect(() => {
     if (result) {
+      let baseQuery = result.query;
+      
+      // Append filter logic if selected
+      if (expLevel !== 'any') {
+        const expTerm = expLevel === 'senior' ? '"10+ years"' : expLevel === 'mid' ? '("5+ years" OR "7+ years")' : '"entry level"';
+        baseQuery = `${baseQuery} AND ${expTerm}`;
+      }
+      
+      if (degree !== 'Any Degree' && degree !== 'any') {
+        const degTerm = degree === 'Masters' ? '("Masters" OR "MSc" OR "PhD")' : '("Bachelors" OR "BSc" OR "BA")';
+        baseQuery = `${baseQuery} AND ${degTerm}`;
+      }
+
+      if (skillQuery.trim()) {
+        const skillsArray = skillQuery.split(',').map(s => `"${s.trim()}"`).join(' AND ');
+        baseQuery = `${baseQuery} AND ${skillsArray}`;
+      }
+
+      setEditableQuery(baseQuery);
+    }
+  }, [result, expLevel, degree, skillQuery]);
+
+  useEffect(() => {
+    if (result && !editableQuery) {
       setEditableQuery(result.query);
     }
   }, [result]);
@@ -68,17 +108,6 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
     window.open(url, '_blank');
   };
   
-  // Advanced Filters
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState({ city: '', state: '', country: '', zip: '', radius: '25' });
-  const [industry, setIndustry] = useState('');
-  const [minExp, setMinExp] = useState(0);
-  const [gradYear, setGradYear] = useState('');
-  const [companies, setCompanies] = useState('');
-  const [degree, setDegree] = useState('Any');
-  const [relocation, setRelocation] = useState(false);
-  const [certifications, setCertifications] = useState('');
-
   // Suggestions State
   const [activeSuggestionField, setActiveSuggestionField] = useState<string | null>(null);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -131,6 +160,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   // Internal Pool State
   const [talentPool, setTalentPool] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [uploadStats, setUploadStats] = useState({ progress: 0, total: 0, current: 0, eta: '' });
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -248,38 +278,74 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
     const files = e.target.files;
     if (!files || files.length === 0 || !auth.currentUser) return;
 
+    const fileList = Array.from(files as unknown as File[]);
     setIsSyncing(true);
-    try {
-      const uploadPromises = Array.from(files as unknown as File[]).map(async (file) => {
-        try {
-          const talent = {
-            recruiterId: auth.currentUser?.uid,
-            name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
-            title: 'Imported Talent',
-            score: 100,
-            location: 'Internal Database',
-            isInternal: true,
-            experience: Math.floor(Math.random() * 10) + 2,
-            degree: 'Analyzing...',
-            resumeSnippet: `Securely indexed record for ${file.name}. This profile is private to your organization.`,
-            highlightedMatches: [],
-            keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
-            createdAt: serverTimestamp()
-          };
-          const docRef = await addDoc(collection(db, 'candidates'), talent);
-          return { id: docRef.id, ...talent };
-        } catch (err) {
-          handleFirestoreError(err, OperationType.CREATE, 'candidates');
-          return null;
-        }
-      });
+    setUploadStats({ progress: 0, total: fileList.length, current: 0, eta: 'Calculating...' });
 
-      const results = await Promise.all(uploadPromises);
-      const newTalents = results.filter(t => t !== null) as any[];
-      setTalentPool(prev => [...newTalents, ...prev]);
+    const startTime = Date.now();
+    
+    try {
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        
+        // Progress update
+        const currentProgress = Math.round(((i) / fileList.length) * 100);
+        
+        // ETA
+        const elapsed = (Date.now() - startTime) / 1000;
+        const perFile = elapsed / (i || 1);
+        const remaining = fileList.length - i;
+        const etaSeconds = Math.round(remaining * perFile);
+        const etaText = etaSeconds > 60 ? `${Math.floor(etaSeconds / 60)}m ${etaSeconds % 60}s` : `${etaSeconds}s`;
+
+        setUploadStats({ 
+          progress: currentProgress, 
+          total: fileList.length, 
+          current: i + 1,
+          eta: i === 0 ? 'Starting...' : etaText
+        });
+
+        const reader = new FileReader();
+        const textPromise = new Promise<string>((resolve) => {
+          reader.onload = (ev) => resolve(ev.target?.result as string || '');
+          reader.readAsText(file);
+        });
+        
+        const text = await textPromise;
+        const talent = {
+          recruiterId: auth.currentUser?.uid,
+          name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
+          title: 'Imported Talent',
+          score: 100,
+          location: 'Internal Database',
+          isInternal: true,
+          experience: Math.floor(Math.random() * 10) + 2,
+          degree: 'Analyzing...',
+          resumeSnippet: text.slice(0, 1000) || `Securely indexed record for ${file.name}.`,
+          highlightedMatches: [],
+          keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
+          createdAt: serverTimestamp()
+        };
+        
+        await addDoc(collection(db, 'candidates'), talent);
+      }
+      
+      setUploadStats(prev => ({ ...prev, progress: 100, eta: 'Success!' }));
+
+      // Notification
+      const notification = document.createElement('div');
+      notification.innerHTML = `
+        <div style="position: fixed; bottom: 20px; left: 20px; background: #111827; color: white; padding: 16px 24px; border-radius: 16px; font-weight: bold; font-family: sans-serif; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9999; animation: slideUp 0.3s ease-out;">
+          <style>@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }</style>
+          🛸 Orbit Sync: ${fileList.length} Assets Ingested
+        </div>
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 4000);
+
+      setTimeout(() => setIsSyncing(false), 2000);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'candidates');
-    } finally {
       setIsSyncing(false);
     }
   };
@@ -339,7 +405,22 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              {isSyncing && uploadStats.total > 0 && (
+                <div className="flex flex-col items-end mr-2">
+                   <div className="flex justify-between w-24 mb-1">
+                     <span className="text-[7px] font-black uppercase text-indigo-electric">Syncing</span>
+                     <span className="text-[7px] font-black uppercase text-indigo-electric">{uploadStats.eta}</span>
+                   </div>
+                   <div className="w-24 h-1 bg-indigo-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadStats.progress}%` }}
+                        className="h-full bg-indigo-electric"
+                      />
+                   </div>
+                </div>
+              )}
               <label className="cursor-pointer px-4 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
                 <Upload className={cn("w-3 h-3", isSyncing && "animate-bounce")} /> 
                 {isSyncing ? 'Syncing...' : 'Bulk Import Resumes'}
@@ -430,6 +511,18 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
+                <Brain className="w-3.5 h-3.5" /> High-Intensity Keywords
+              </label>
+              <input 
+                value={skillQuery} 
+                onChange={(e) => setSkillQuery(e.target.value)} 
+                placeholder="e.g. React, Node.js, AWS (Comma separated)" 
+                className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
+              />
             </div>
 
             {/* Location Filter */}
@@ -529,8 +622,13 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                 </AnimatePresence>
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3.5 h-3.5" /> Min Exp</label>
-                <input type="number" value={minExp} onChange={(e) => setMinExp(Number(e.target.value))} className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none font-bold" />
+                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3.5 h-3.5" /> Experience Track</label>
+                <select value={expLevel} onChange={(e) => setExpLevel(e.target.value as any)} className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
+                  <option value="any">Any Level</option>
+                  <option value="entry">Entry (0-2y)</option>
+                  <option value="mid">Mid-Senior (5-8y)</option>
+                  <option value="senior">Leadership (10y+)</option>
+                </select>
               </div>
             </div>
 
@@ -675,6 +773,52 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                     </button>
                   </div>
                 </div>
+
+                {result?.roleBlueprint && (
+                  <div className="mt-8 pt-8 border-t border-white/10 space-y-6">
+                    <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
+                      <p className="text-[10px] font-black uppercase text-coral mb-2 flex items-center gap-2">
+                        <Monitor className="w-3.5 h-3.5" /> The Software Stack
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {result.roleBlueprint.software.map((s, i) => (
+                          <span key={i} className="px-3 py-1.5 bg-white/5 rounded-full text-[10px] text-indigo-100 font-medium">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
+                         <p className="text-[10px] font-black uppercase text-indigo-300 mb-2 flex items-center gap-2">
+                           <Brain className="w-3.5 h-3.5" /> Core Skills
+                         </p>
+                         <ul className="space-y-1">
+                           {result.roleBlueprint.skillSet.slice(0, 5).map((s, i) => (
+                             <li key={i} className="text-[10px] text-white/60 flex items-center gap-2">
+                               <div className="w-1 h-1 bg-indigo-electric/40 rounded-full" /> {s}
+                             </li>
+                           ))}
+                         </ul>
+                      </div>
+                      <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
+                         <p className="text-[10px] font-black uppercase text-emerald-400 mb-2 flex items-center gap-2">
+                           <Globe className="w-3.5 h-3.5" /> Industry Logic
+                         </p>
+                         <ul className="space-y-1">
+                           {result.roleBlueprint.industry.map((s, i) => (
+                             <li key={i} className="text-[10px] text-white/60 flex items-center gap-2">
+                               <div className="w-1 h-1 bg-emerald-400/40 rounded-full" /> {s}
+                             </li>
+                           ))}
+                         </ul>
+                      </div>
+                    </div>
+
+                    <div className="p-6 bg-indigo-electric/5 rounded-3xl border border-indigo-electric/10">
+                      <p className="text-[9px] font-bold text-indigo-electric uppercase tracking-widest mb-2 italic">"{result.roleBlueprint.brief}"</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-10">
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5 flex items-center gap-2">

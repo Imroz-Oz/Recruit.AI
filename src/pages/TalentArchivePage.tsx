@@ -40,6 +40,8 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
+  const [showLocationError, setShowLocationError] = useState(false);
 
   useEffect(() => {
     fetchTalent();
@@ -174,6 +176,24 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
     setIsBooleanSearchActive(false);
   };
 
+  const handleXRaySearch = () => {
+    const hasLocation = xRayLocation.country || xRayLocation.state || xRayLocation.zip;
+    if (!hasLocation) {
+      setShowLocationError(true);
+      return;
+    }
+    
+    setShowLocationError(false);
+    const query = booleanQuery;
+    if (!query) return;
+    
+    const locationString = [xRayLocation.country, xRayLocation.state, xRayLocation.zip].filter(Boolean).join(' ');
+    const fullQuery = encodeURIComponent(`${query} "${locationString}"`);
+    const url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+    
+    window.open(url, '_blank');
+  };
+
   const filteredCandidates = candidates.filter(c => {
     const searchString = (c.name + ' ' + c.title + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
     
@@ -247,9 +267,51 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                   onClick={handleBooleanSearch}
                   className="px-8 py-3 bg-indigo-electric text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-white hover:text-midnight transition-all shadow-lg"
                 >
-                  Run Query
+                  Internal Search
                 </button>
               </div>
+            </div>
+
+            <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h5 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5" /> Target Location (Required for X-Ray)
+                </h5>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                 <input 
+                   value={xRayLocation.country}
+                   onChange={(e) => setXRayLocation({...xRayLocation, country: e.target.value})}
+                   placeholder="Country"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                 />
+                 <input 
+                   value={xRayLocation.state}
+                   onChange={(e) => setXRayLocation({...xRayLocation, state: e.target.value})}
+                   placeholder="State"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                 />
+                 <input 
+                   value={xRayLocation.zip}
+                   onChange={(e) => setXRayLocation({...xRayLocation, zip: e.target.value})}
+                   placeholder="Zip"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                 />
+              </div>
+              {showLocationError && (
+                <p className="text-[8px] font-bold text-coral uppercase tracking-widest px-1 animate-pulse">
+                  Please provide at least one location parameter (Country, State, or Zip)
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={handleXRaySearch}
+                className="py-5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl"
+              >
+                <Search className="w-3.5 h-3.5 text-indigo-electric" /> Launch LinkedIn X-Ray Intelligence
+              </button>
             </div>
           </div>
 

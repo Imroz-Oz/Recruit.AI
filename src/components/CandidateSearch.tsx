@@ -39,6 +39,34 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [searchMode, setSearchMode] = useState<'ai' | 'manual'>('ai');
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<BooleanResponse | null>(null);
+  const [editableQuery, setEditableQuery] = useState('');
+  const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
+  const [showLocationError, setShowLocationError] = useState(false);
+  
+  useEffect(() => {
+    if (result) {
+      setEditableQuery(result.query);
+    }
+  }, [result]);
+
+  const handleXRaySearch = () => {
+    const hasLocation = xRayLocation.country || xRayLocation.state || xRayLocation.zip;
+    
+    if (!hasLocation) {
+      setShowLocationError(true);
+      return;
+    }
+
+    setShowLocationError(false);
+    const query = editableQuery || manualQuery;
+    const locationString = [xRayLocation.country, xRayLocation.state, xRayLocation.zip].filter(Boolean).join(' ');
+    const fullQuery = encodeURIComponent(`${query} "${locationString}"`);
+    
+    // Classic LinkedIn X-Ray string
+    const url = `https://www.google.com/search?q=site:linkedin.com/in+(${fullQuery})`;
+    
+    window.open(url, '_blank');
+  };
   
   // Advanced Filters
   const [title, setTitle] = useState('');
@@ -639,20 +667,71 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
                 <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-3">
                     <Terminal className="w-5 h-5 text-coral" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Boolean Search Protocol</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Mission Logic Protocol</span>
                   </div>
-                  {result && (
+                  <div className="flex gap-2">
+                    {result && (
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(editableQuery)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-[10px] font-bold uppercase tracking-widest"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <textarea 
+                    value={editableQuery || manualQuery}
+                    onChange={(e) => setEditableQuery(e.target.value)}
+                    className="w-full h-40 p-8 bg-white/5 p-8 rounded-3xl border border-white/10 font-mono text-xs leading-relaxed text-indigo-200 shadow-inner outline-none focus:border-indigo-electric/40 transition-all resize-none"
+                    placeholder="Boolean logic will appear here..."
+                  />
+
+                  <div className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <h5 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5" /> Target Location (Required for X-Ray)
+                      </h5>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                       <input 
+                         value={xRayLocation.country}
+                         onChange={(e) => setXRayLocation({...xRayLocation, country: e.target.value})}
+                         placeholder="Country"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                       />
+                       <input 
+                         value={xRayLocation.state}
+                         onChange={(e) => setXRayLocation({...xRayLocation, state: e.target.value})}
+                         placeholder="State"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                       />
+                       <input 
+                         value={xRayLocation.zip}
+                         onChange={(e) => setXRayLocation({...xRayLocation, zip: e.target.value})}
+                         placeholder="Zip"
+                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all"
+                       />
+                    </div>
+                    {showLocationError && (
+                      <p className="text-[8px] font-bold text-coral uppercase tracking-widest px-1 animate-pulse">
+                        Please provide at least one location parameter (Country, State, or Zip)
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
                     <button 
-                      onClick={() => navigator.clipboard.writeText(result.query)}
-                      className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-[10px] font-bold uppercase tracking-widest"
+                      onClick={handleXRaySearch}
+                      className="py-5 bg-indigo-electric hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5 shadow-xl shadow-indigo-500/10"
                     >
-                      <Copy className="w-3.5 h-3.5" /> Copy String
+                      <Search className="w-3.5 h-3.5" /> Launch LinkedIn X-Ray Intelligence
                     </button>
-                  )}
+                  </div>
                 </div>
-                <div className="bg-white/5 p-8 rounded-3xl border border-white/10 font-mono text-xs leading-relaxed text-indigo-200 shadow-inner">
-                  {result?.query || manualQuery}
-                </div>
+
                 <div className="mt-10">
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5 flex items-center gap-2">
                     <Info className="w-4 h-4" /> Recommended Search Titles

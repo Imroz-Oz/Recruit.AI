@@ -197,9 +197,16 @@ function HunterCareerAIPage() {
   const handleGenerate = async () => {
     if (!role || !company) return;
     setIsGenerating(true);
-    const optimization = await generateLinkedInOptimizations(role, company);
-    setResults(optimization);
-    setIsGenerating(false);
+    setResults(null);
+    try {
+      const optimization = await generateLinkedInOptimizations(role, company);
+      setResults(optimization);
+    } catch (err: any) {
+      console.error("LinkedIn Optimization Error:", err);
+      alert(err.message || "Failed to generate optimizations. Please check your AI configuration.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (

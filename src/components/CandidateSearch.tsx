@@ -23,28 +23,46 @@ import {
   DollarSign,
   Brain,
   Monitor,
-  Globe
+  Globe,
+  ClipboardCheck,
+  FileSearch,
+  Lightbulb,
+  MousePointer2,
+  Trash2,
+  Link2
 } from 'lucide-react';
-import { generateBooleanFromJD, BooleanResponse } from '@/src/services/geminiService';
+import { 
+  generateBooleanFromJD, 
+  analyzeResumeMatch, 
+  extractProfileData,
+  BooleanResponse, 
+  ResumeMatchResult 
+} from '@/src/services/geminiService';
 import { cn } from '@/src/lib/utils';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, deleteDoc, doc, getDoc, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface CandidateSearchProps {
   onMatchesFound: (matches: any[]) => void;
   isLinkedInConnected?: boolean;
+  onConnectLinkedIn?: () => void;
 }
 
-export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }: CandidateSearchProps) {
+export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, onConnectLinkedIn }: CandidateSearchProps) {
   const [jd, setJd] = useState('');
   const [manualQuery, setManualQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'orbit' | 'xray'>('orbit');
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<BooleanResponse | null>(null);
+  const [generatorView, setGeneratorView] = useState<'input' | 'results'>('input');
   const [editableQuery, setEditableQuery] = useState('');
+  const [geoPrecision, setGeoPrecision] = useState<'city' | 'state' | 'country'>('city');
   const [geoParams, setGeoParams] = useState({ city: '', state: '', country: '', zip: '', radius: '25' });
   const [showLocationError, setShowLocationError] = useState(false);
+  
+  // Copilot Navigation
+  const [activeTab, setActiveTab] = useState<'boolean' | 'resume' | 'insights' | 'admin'>('boolean');
   
   // Advanced Filters
   const [title, setTitle] = useState('');
@@ -56,71 +74,74 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   const [companies, setCompanies] = useState('');
   const [relocation, setRelocation] = useState(false);
   const [certifications, setCertifications] = useState('');
+  const [visaStatus, setVisaStatus] = useState('any');
+  const [remotePreference, setRemotePreference] = useState('any');
+
+  // Resume Matching State
+  const [resumeMatchText, setResumeMatchText] = useState('');
+  const [isMatching, setIsMatching] = useState(false);
+  const [matchResult, setMatchResult] = useState<ResumeMatchResult | null>(null);
 
   // Sync Boolean with Filters
   useEffect(() => {
     if (searchMode === 'orbit' && result) {
-      let baseQuery = result.query;
-      
-      // Append filter logic if selected
-      if (expLevel !== 'any') {
-        const expTerm = expLevel === 'senior' ? '"10+ years"' : expLevel === 'mid' ? '("5+ years" OR "7+ years")' : '"entry level"';
-        baseQuery = `${baseQuery} AND ${expTerm}`;
-      }
-      
-      if (degree !== 'Any Degree' && degree !== 'any') {
-        const degTerm = degree === 'Masters' ? '("Masters" OR "MSc" OR "PhD")' : '("Bachelors" OR "BSc" OR "BA")';
-        baseQuery = `${baseQuery} AND ${degTerm}`;
-      }
+      // Create a master keywords block
+      let keywordsBlock = result.extractedKeywords;
 
+      // Add Vector Filters directly into the keywords if they exist
+      const vectors: string[] = [];
       if (skillQuery.trim()) {
         const skillsArray = skillQuery.split(',').map(s => `"${s.trim()}"`).join(' AND ');
-        baseQuery = `${baseQuery} AND ${skillsArray}`;
+        vectors.push(`(${skillsArray})`);
+      }
+      if (certifications.trim()) {
+        const certsArray = certifications.split(',').map(c => `"${c.trim()}"`).join(' OR ');
+        vectors.push(`(${certsArray})`);
       }
 
-      setEditableQuery(baseQuery);
-    } else if (searchMode === 'xray') {
-      // Manual Builder Logic
-      let parts = [];
-      if (title.trim()) parts.push(`"${title.trim()}"`);
-      if (skillQuery.trim()) {
-        const skills = skillQuery.split(',').map(s => `"${s.trim()}"`).join(' AND ');
-        parts.push(`(${skills})`);
-      }
-      if (industry.trim()) parts.push(`"${industry.trim()}"`);
+      const vectorString = vectors.length > 0 ? ` AND ${vectors.join(' AND ')}` : '';
       
-      if (parts.length > 0) {
-        setManualQuery(parts.join(' AND '));
-      }
+      // Update the full query
+      const finalQuery = `("${result.extractedTitle}") AND (${keywordsBlock}${vectorString})`;
+      setEditableQuery(finalQuery);
     }
-  }, [result, expLevel, degree, skillQuery, searchMode, title, industry]);
+  }, [result, skillQuery, certifications, searchMode]);
 
-  const handleXRaySearch = (platform: 'linkedin' | 'dribbble' | 'coroflot' = 'linkedin') => {
-    const finalQuery = searchMode === 'orbit' ? editableQuery : manualQuery;
-    if (!finalQuery.trim()) return;
+  const handleXRaySearch = (platform: string = 'linkedin') => {
+    // Construct a structured query block using individual filter fields
+    const parts: string[] = [];
 
-    // Smart location construction
-    const locTerms = [geoParams.city, geoParams.state, geoParams.country, geoParams.zip].filter(Boolean);
-    const locationString = locTerms.length > 0 ? ` "${locTerms.join(' ')}"` : '';
+    // Prioritize extracted or edited fields
+    const searchTitle = result?.extractedTitle || title;
+    const searchLocation = result?.extractedLocation || geoParams.city;
+    const searchCountry = result?.extractedCountry || geoParams.country;
+    const searchKeywords = editableQuery || manualQuery;
+
+    if (searchTitle) parts.push(`intitle:"${searchTitle}"`);
     
-    let url = '';
-    const baseQuery = `${finalQuery}${locationString}`;
+    // Geographic precision - Limit to ONE as per requirement
+    if (geoPrecision === 'city' && searchLocation) parts.push(`"${searchLocation}"`);
+    else if (geoPrecision === 'state' && geoParams.state) parts.push(`"${geoParams.state}"`);
+    else if (geoPrecision === 'country' && searchCountry) parts.push(`"${searchCountry}"`);
+
+    if (searchKeywords) parts.push(searchKeywords);
+
+    const searchQuery = parts.join(' ');
     
-    switch(platform) {
-      case 'dribbble':
-        url = `https://www.google.com/search?q=site:dribbble.com "${baseQuery}" -jobs -hiring`;
-        break;
-      case 'coroflot':
-        url = `https://www.google.com/search?q=site:coroflot.com/people "${baseQuery}"`;
-        break;
-      default:
-        // Enhanced LinkedIn X-Ray Strategy
-        // -intitle:profiles and -inurl:dir removes generic directory pages
-        const linkedinFilter = 'site:linkedin.com/in OR site:linkedin.com/pub -intitle:profiles -inurl:dir -inurl:groups';
-        url = `https://www.google.com/search?q=${encodeURIComponent(`${linkedinFilter} ${baseQuery}`)}`;
-    }
+    // Platform filters matching recruitin.net / industry standards
+    const platformOperators: Record<string, string> = {
+      linkedin: 'site:linkedin.com/in/ OR site:linkedin.com/pub/ -intitle:profiles -inurl:dir -inurl:groups -inurl:jobs -inurl:posts',
+      github: 'site:github.com -inurl:tab -inurl:stars -inurl:followers -inurl:following',
+      dribbble: 'site:dribbble.com -inurl:jobs -inurl:hiring',
+      coroflot: 'site:coroflot.com/people',
+      behance: 'site:behance.net -inurl:projects -inurl:collections',
+      stackoverflow: 'site:stackoverflow.com/users'
+    };
+
+    const filter = platformOperators[platform] || platformOperators.linkedin;
+    const finalUrl = `https://www.google.com/search?q=${encodeURIComponent(`${filter} ${searchQuery}`)}`;
     
-    window.open(url, '_blank');
+    window.open(finalUrl, '_blank', 'noreferrer');
   };
   
   // Suggestions State
@@ -175,33 +196,120 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
   // Internal Pool State
   const [talentPool, setTalentPool] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [uploadStats, setUploadStats] = useState({ progress: 0, total: 0, current: 0, eta: '' });
+  const [uploadStats, setUploadStats] = useState({ progress: 0, total: 0, current: 0, eta: 'Calculating...' });
+  const [userRole, setUserRole] = useState<'recruiter' | 'admin' | 'universal'>('recruiter');
+
+  const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
+
+  // Fetch User Role & Plan
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    
+    const fetchRole = async () => {
+      try {
+        // Universal Admin Check (Hardcoded for requestor)
+        if (auth.currentUser!.email === 'king007.2311@gmail.com') {
+          setUserRole('universal');
+          setUserPlan('enterprise');
+          return;
+        }
+
+        const userRef = doc(db, 'users', auth.currentUser!.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          setUserRole(data.role || 'recruiter');
+          setUserPlan(data.userPlan || 'free'); // Default to free
+        }
+      } catch (err) {
+        console.error("Error fetching role:", err);
+      }
+    };
+    
+    fetchRole();
+  }, [auth.currentUser]);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    // Global Talent Stream (No recruiterId filter for shared database)
-    const q = query(
-      collection(db, 'candidates'), 
-      orderBy('createdAt', 'desc')
-    );
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTalentPool(fetched);
-      setIsSyncing(false);
-    }, (error) => {
-      console.error('Candidate sync error:', error);
-      handleFirestoreError(error, OperationType.LIST, 'candidates');
-    });
+    const fetchUserAndCandidates = async () => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      if (!isMounted) return;
+      const orgId = userDoc.data()?.organizationId || 'global';
 
-    return () => unsubscribe();
+      // Scoped Candidate Stream
+      const q = query(
+        collection(db, 'candidates'),
+        where('organizationId', '==', orgId),
+        orderBy('createdAt', 'desc')
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTalentPool(fetched);
+        
+        if (matches.length === 0) {
+          setMatches(fetched);
+        }
+        setIsSyncing(false);
+      }, (error) => {
+        console.warn('Candidate sync error:', error);
+        handleFirestoreError(error, OperationType.LIST, 'candidates');
+      });
+    };
+
+    fetchUserAndCandidates();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, [auth.currentUser]);
 
   const [matches, setMatches] = useState<any[]>([]);
 
-  // Preview State
+  const handleQueryEdit = async (newVal: string) => {
+    setEditableQuery(newVal);
+    // Debounce or trigger logic to learn from this edit
+    if (auth.currentUser && result) {
+      // We could log this to a feedback collection
+      console.log("Feedback logged: User edited query.");
+    }
+  };
+
+  const handleLaunchSearch = async (platform: string) => {
+    // Record the final state before leaving
+    if (auth.currentUser && result) {
+      await addDoc(collection(db, 'interactions'), {
+        userId: auth.currentUser.uid,
+        type: 'search_launch',
+        originalOutput: result.query,
+        finalOutput: editableQuery,
+        resultCount: matches.length,
+        platform,
+        timestamp: serverTimestamp()
+      });
+    }
+    platform === 'all' ? handleXRaySearch('all') : handleXRaySearch(platform);
+  };
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
+
+  const handleResumeMatch = async () => {
+    if (!resumeMatchText.trim() || !jd.trim()) return;
+    setIsMatching(true);
+    try {
+      const data = await analyzeResumeMatch(resumeMatchText, jd);
+      setMatchResult(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsMatching(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (searchMode === 'orbit' && !jd.trim()) return;
@@ -210,10 +318,38 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
     setIsGenerating(true);
     try {
       if (searchMode === 'orbit') {
-        const data = await generateBooleanFromJD(jd);
+        // Fetch interactions for learning
+        let interactions: any[] = [];
+        if (auth.currentUser) {
+          try {
+            const iQ = query(
+              collection(db, 'interactions'),
+              where('userId', '==', auth.currentUser.uid),
+              where('type', '==', 'search_launch'),
+              orderBy('timestamp', 'desc'),
+              limit(5)
+            );
+            const iSnap = await getDocs(iQ);
+            interactions = iSnap.docs.map(d => d.data());
+          } catch (e) {
+            console.warn("Could not fetch interactions for learning:", e);
+          }
+        }
+
+        const data = await generateBooleanFromJD(jd, interactions);
         setResult(data);
+        setGeneratorView('results');
         
-        // Comprehensive Search Logic: Combined Boolean + Semantic Gaps
+        // Track the interaction for learning
+        if (auth.currentUser) {
+          await addDoc(collection(db, 'interactions'), {
+            userId: auth.currentUser.uid,
+            type: 'boolean_generation',
+            input: jd,
+            output: data.query,
+            timestamp: serverTimestamp()
+          });
+        }
         const found = talentPool.filter(c => {
           const haystack = (c.name + ' ' + c.title + ' ' + c.resumeSnippet + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
           
@@ -312,22 +448,8 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
         
-        // Progress update
-        const currentProgress = Math.round(((i) / fileList.length) * 100);
-        
-        // ETA
-        const elapsed = (Date.now() - startTime) / 1000;
-        const perFile = elapsed / (i || 1);
-        const remaining = fileList.length - i;
-        const etaSeconds = Math.round(remaining * perFile);
-        const etaText = etaSeconds > 60 ? `${Math.floor(etaSeconds / 60)}m ${etaSeconds % 60}s` : `${etaSeconds}s`;
-
-        setUploadStats({ 
-          progress: currentProgress, 
-          total: fileList.length, 
-          current: i + 1,
-          eta: i === 0 ? 'Starting...' : etaText
-        });
+        // Progress update...
+        setUploadStats(prev => ({ ...prev, current: i + 1, progress: Math.round((i / fileList.length) * 100) }));
 
         const reader = new FileReader();
         const textPromise = new Promise<string>((resolve) => {
@@ -336,25 +458,54 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
         });
         
         const text = await textPromise;
+        const profile = await extractProfileData(text);
+
+        // 1. Validate: Is it a resume?
+        if (!profile.isResume) {
+          console.warn(`File ${file.name} is not a valid resume. Skipping.`);
+          continue;
+        }
+
+        // 2. Validate: Must have email or phone
+        if (!profile.email && !profile.phone) {
+          console.warn(`Resume ${file.name} missing contact info. Skipping.`);
+          continue;
+        }
+
+        // 3. Duplicate Detection
+        const dupQuery = query(
+          collection(db, 'candidates'),
+          where('email', '==', profile.email || 'NO_EMAIL'),
+          where('phone', '==', profile.phone || 'NO_PHONE')
+        );
+        const dupSnap = await getDocs(dupQuery);
+        
+        if (!dupSnap.empty) {
+          console.warn(`Duplicate found for ${profile.name}. Replacing.`);
+          // Delete existing for replacement if desired, or skip
+          await Promise.all(dupSnap.docs.map(d => deleteDoc(d.ref)));
+        }
+
         const talent = {
           recruiterId: auth.currentUser?.uid,
-          name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
-          title: 'Imported Talent',
+          name: profile.name || file.name.split('.')[0], // Name after candidate
+          email: profile.email,
+          phone: profile.phone,
+          title: profile.title,
           score: 100,
-          location: 'Internal Database',
+          location: profile.location,
           isInternal: true,
-          experience: Math.floor(Math.random() * 10) + 2,
-          degree: 'Analyzing...',
-          resumeSnippet: text.slice(0, 1000) || `Securely indexed record for ${file.name}.`,
-          highlightedMatches: [],
-          keywords: [file.name.split('.')[0].toLowerCase(), 'uploaded', 'private'],
+          experience: profile.experience,
+          degree: profile.degree,
+          resumeSnippet: profile.summary,
+          keywords: profile.skills,
           createdAt: serverTimestamp()
         };
         
         await addDoc(collection(db, 'candidates'), talent);
       }
       
-      setUploadStats(prev => ({ ...prev, progress: 100, eta: 'Success!' }));
+      setUploadStats(prev => ({ ...prev, progress: 100, eta: 'Done' }));
 
       // Notification
       const notification = document.createElement('div');
@@ -384,669 +535,716 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected }:
     reader.readAsText(file);
   };
 
-  return (
-    <div className="space-y-10">
-      <div className="flex justify-center mb-8">
-        <div className="bg-white p-1 rounded-full border border-midnight/5 shadow-sm flex gap-1">
+  const renderFilters = () => (
+    <div className="space-y-6">
+      {/* Search Actions */}
+      <div className="flex gap-2 mb-4">
+        <button 
+          onClick={handleGenerate}
+          disabled={isGenerating}
+          className="flex-1 py-3 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-coral transition-all disabled:opacity-50"
+        >
+          {isGenerating ? <Zap className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          Run AI Orbit
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-2 relative">
+          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
+            <Terminal className="w-3 h-3" /> Core Target Title
+          </label>
+          <input 
+            value={title} 
+            onChange={(e) => {
+              setTitle(e.target.value);
+              updateSuggestions('title', e.target.value);
+            }} 
+            onFocus={() => updateSuggestions('title', title)}
+            onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+            placeholder="e.g. Lead Software Engineer" 
+            className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
+          />
+          <AnimatePresence>
+            {activeSuggestionField === 'title' && filteredSuggestions.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+                className="absolute z-50 left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-midnight/5 overflow-hidden"
+              >
+                {filteredSuggestions.map((s, i) => (
+                  <button key={i} onClick={() => handleSuggestionSelect('title', s)}
+                    className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
+            <Brain className="w-3 h-3" /> Must-Have Keywords
+          </label>
+          <input value={skillQuery} onChange={(e) => setSkillQuery(e.target.value)} 
+            placeholder="React, Node.js, AWS..." 
+            className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" 
+          />
+        </div>
+
+        <div className="space-y-4">
+          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
+            <MapPin className="w-3 h-3" /> Geographic Limit
+          </label>
+          <div className="flex gap-2 p-1 bg-warm-gray rounded-xl">
+             {['city', 'state', 'country'].map((p) => (
+                <button 
+                  key={p} 
+                  onClick={() => setGeoPrecision(p as any)}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-[8px] font-bold uppercase transition-all",
+                    geoPrecision === p ? "bg-midnight text-white shadow-sm" : "text-midnight/40 hover:text-midnight"
+                  )}
+                >
+                  {p}
+                </button>
+             ))}
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {geoPrecision === 'city' && <input value={geoParams.city} onChange={(e) => setGeoParams({...geoParams, city: e.target.value})} placeholder="City Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
+            {geoPrecision === 'state' && <input value={geoParams.state} onChange={(e) => setGeoParams({...geoParams, state: e.target.value})} placeholder="State Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
+            {geoPrecision === 'country' && <input value={geoParams.country} onChange={(e) => setGeoParams({...geoParams, country: e.target.value})} placeholder="Country Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3 h-3" /> Seniority</label>
+            <select value={expLevel} onChange={(e) => setExpLevel(e.target.value as any)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
+              <option value="any">Any</option>
+              <option value="entry">Entry (0-2y)</option>
+              <option value="mid">Mid (3-7y)</option>
+              <option value="senior">Senior (8y+)</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Eye className="w-3 h-3" /> Visa</label>
+            <select value={visaStatus} onChange={(e) => setVisaStatus(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
+              <option value="any">Any Status</option>
+              <option value="citizen">Citizen/PR</option>
+              <option value="sponsorship">Needs Sponsor</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Monitor className="w-3 h-3" /> Environment</label>
+          <select value={remotePreference} onChange={(e) => setRemotePreference(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
+            <option value="any">No Preference</option>
+            <option value="remote">Strictly Remote</option>
+            <option value="onsite">On-site / Hybrid</option>
+          </select>
+        </div>
+
+        <div className="pt-4 border-t border-midnight/5 space-y-4">
+           <label className="flex items-center gap-2 cursor-pointer group">
+            <input type="checkbox" checked={relocation} onChange={(e) => setRelocation(e.target.checked)} className="w-3.5 h-3.5 rounded accent-midnight" />
+            <span className="text-[9px] font-bold text-midnight/40 group-hover:text-midnight uppercase tracking-widest">Willing to Relocate</span>
+          </label>
+           <label className="flex items-center gap-2 cursor-pointer group">
+            <input type="checkbox" checked={isLinkedInConnected} readOnly className="w-3.5 h-3.5 rounded accent-indigo-electric" />
+            <span className="text-[9px] font-bold text-midnight/40 group-hover:text-midnight uppercase tracking-widest">LinkedIn Synced</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBooleanGenerator = () => (
+    <div className="h-full flex flex-col space-y-6">
+      {generatorView === 'input' ? (
+        <div className="flex-1 bg-midnight p-8 rounded-[2.5rem] shadow-2xl space-y-6 relative overflow-hidden group flex flex-col">
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-coral/20 rounded-lg flex items-center justify-center">
+                <Terminal className="w-4 h-4 text-coral" />
+              </div>
+              <h4 className="text-white font-serif font-bold italic text-lg tracking-wide">AI Selection Orbit</h4>
+            </div>
+            <button 
+              onClick={handleGenerate}
+              disabled={isGenerating || !jd.trim()}
+              className="px-8 py-3 bg-indigo-electric hover:bg-white text-white hover:text-midnight rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all disabled:opacity-50"
+            >
+              {isGenerating ? 'Parsing...' : 'Analyze JD'}
+            </button>
+          </div>
+
+          <textarea
+            value={jd}
+            onChange={(e) => setJd(e.target.value)}
+            placeholder="Paste Job Description here... AI will extract title, location, and keywords automatically."
+            className="w-full flex-1 bg-white/5 border border-white/10 rounded-3xl p-8 text-indigo-100 font-mono text-sm leading-relaxed outline-none focus:border-indigo-electric/40 transition-all resize-none mt-4"
+          />
+        </div>
+      ) : (
+        <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
+          {/* RESULTS VIEW - MATCHING SCREENSHOT */}
+          <div className="bg-white p-10 rounded-[3rem] border border-midnight/5 shadow-xl space-y-10">
+            <div className="flex justify-between items-center">
+               <h3 className="text-3xl font-serif font-bold italic text-midnight">Recruit AI: Synthesis</h3>
+               <button onClick={() => setGeneratorView('input')} className="text-[10px] font-bold uppercase text-midnight/40 hover:text-midnight">Back to JD</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="space-y-2">
+                 <label className="text-[9px] font-black uppercase text-midnight/30 tracking-widest">Extracted Job Title</label>
+                 <input 
+                   value={result?.extractedTitle} 
+                   onChange={(e) => setResult(prev => prev ? {...prev, extractedTitle: e.target.value} : null)}
+                   className="w-full p-4 bg-warm-gray rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-midnight/10"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[9px] font-black uppercase text-midnight/30 tracking-widest">Extracted Location</label>
+                 <input 
+                   value={result?.extractedLocation} 
+                   onChange={(e) => setResult(prev => prev ? {...prev, extractedLocation: e.target.value} : null)}
+                   className="w-full p-4 bg-warm-gray rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-midnight/10"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[9px] font-black uppercase text-midnight/30 tracking-widest">Extracted Country</label>
+                 <input 
+                   value={result?.extractedCountry} 
+                   onChange={(e) => setResult(prev => prev ? {...prev, extractedCountry: e.target.value} : null)}
+                   className="w-full p-4 bg-warm-gray rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-midnight/10"
+                 />
+               </div>
+            </div>
+
+            <div className="space-y-3">
+               <div className="flex justify-between items-center">
+                 <label className="text-[9px] font-black uppercase text-midnight/30 tracking-widest">Extracted Keywords (Boolean)</label>
+                 <button onClick={() => navigator.clipboard.writeText(editableQuery)} className="flex items-center gap-2 text-[9px] font-bold uppercase text-indigo-electric">
+                   <Copy className="w-3 h-3" /> Copy Keywords
+                 </button>
+               </div>
+               <textarea 
+                 value={editableQuery}
+                 onChange={(e) => handleQueryEdit(e.target.value)}
+                 className="w-full h-40 p-6 bg-warm-gray rounded-2xl text-xs font-mono leading-relaxed outline-none border-2 border-transparent focus:border-midnight/10"
+               />
+               <p className="text-[8px] text-midnight/40 italic">Keywords and information extracted from your job description using AI. Check and edit if needed.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 pt-6">
+               <button 
+                 onClick={() => isLinkedInConnected ? handleLaunchSearch('linkedin') : onConnectLinkedIn?.()} 
+                 className={cn(
+                   "py-5 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg",
+                   isLinkedInConnected ? "bg-[#00a36e] shadow-emerald-200" : "bg-[#0077b5] shadow-blue-200 animate-pulse"
+                 )}
+               >
+                 {isLinkedInConnected ? (
+                   <>
+                     <Search className="w-4 h-4" /> Generate LinkedIn Search
+                   </>
+                 ) : (
+                   <>
+                     <Link2 className="w-4 h-4" /> Connect LinkedIn for AI Sourcing
+                   </>
+                 )}
+               </button>
+               <button onClick={() => handleLaunchSearch('all')} className="py-5 bg-midnight text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
+                 <Globe className="w-4 h-4" /> Global X-Ray Sweep
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderResumeMatch = () => (
+    <div className="h-full flex flex-col space-y-6">
+      <div className="flex-1 bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6 flex flex-col">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-electric/10 text-indigo-electric rounded-xl flex items-center justify-center">
+              <FileSearch className="w-5 h-5" />
+            </div>
+            <h4 className="text-midnight font-serif font-bold italic text-xl">Resume Matching Engine</h4>
+          </div>
           <button 
-            onClick={() => setSearchMode('orbit')}
+            onClick={handleResumeMatch}
+            disabled={isMatching || !resumeMatchText || !jd}
+            className="px-6 py-2 bg-indigo-electric text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-midnight transition-all disabled:opacity-50"
+          >
+            {isMatching ? 'Analyzing...' : 'Calculate Score'}
+          </button>
+        </div>
+
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
+          <div className="flex flex-col space-y-3">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/40">Candidate Resume Content</label>
+            <textarea
+              value={resumeMatchText}
+              onChange={(e) => setResumeMatchText(e.target.value)}
+              placeholder="Paste candidate resume or profile text here..."
+              className="flex-1 w-full bg-warm-gray rounded-2xl p-6 text-xs outline-none focus:bg-white focus:shadow-inner transition-all resize-none border border-transparent focus:border-indigo-electric/10"
+            />
+          </div>
+          <div className="flex flex-col space-y-3">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/40">Comparison Job Description</label>
+            <textarea
+              value={jd}
+              onChange={(e) => setJd(e.target.value)}
+              placeholder="JD will sync from Boolean tab or paste here..."
+              className="flex-1 w-full bg-warm-gray rounded-2xl p-6 text-xs outline-none focus:bg-white focus:shadow-inner transition-all resize-none border border-transparent focus:border-indigo-electric/10"
+            />
+          </div>
+        </div>
+
+        {matchResult && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col gap-6"
+          >
+            <div className="p-6 bg-midnight text-white rounded-3xl grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex flex-col items-center justify-center border-r border-white/5 pr-8">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="8" className="text-white/10" />
+                    <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * matchResult.score) / 100} className="text-emerald-400" strokeLinecap="round" />
+                  </svg>
+                  <span className="absolute text-3xl font-serif font-bold italic">{matchResult.score}</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-4">Match Affinity Score</span>
+                <p className="text-xs text-white/50 text-center mt-3 font-medium italic">"{matchResult.humanSummary}"</p>
+              </div>
+              
+              <div className="md:col-span-2 grid grid-cols-2 gap-x-12 gap-y-4">
+                {Object.entries(matchResult.breakdown).map(([key, val]) => (
+                  <div key={key} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-black uppercase text-white/30 tracking-widest">{key}</span>
+                      <span className="text-[10px] font-bold">{val}%</span>
+                    </div>
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${val}%` }} className={cn("h-full", (val as number) > 75 ? "bg-emerald-400" : (val as number) > 50 ? "bg-amber-400" : "bg-red-400")} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 space-y-4">
+                <h5 className="text-[10px] font-bold uppercase tracking-widest text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Core Strengths
+                </h5>
+                <ul className="space-y-2">
+                  {matchResult.strengths.map((s, i) => (
+                    <li key={i} className="text-xs text-emerald-900 font-medium leading-relaxed flex items-start gap-2">
+                      <span className="text-emerald-500 mt-1">•</span> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-6 bg-red-50 rounded-3xl border border-red-100 space-y-4">
+                <h5 className="text-[10px] font-bold uppercase tracking-widest text-red-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Identified Gaps
+                </h5>
+                <ul className="space-y-2">
+                  {matchResult.gaps.map((g, i) => (
+                    <li key={i} className="text-xs text-red-900 font-medium leading-relaxed flex items-start gap-2">
+                      <span className="text-red-500 mt-1">•</span> {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {(matchResult.bridgeExperience?.length > 0 || matchResult.optimizationTips?.length > 0) && (
+              <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 space-y-6">
+                <h5 className="text-[10px] font-bold uppercase tracking-widest text-indigo-800 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4" /> Gap Mitigation & Optimization
+                </h5>
+                
+                {matchResult.bridgeExperience?.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-indigo-900 uppercase">Bridge Experience</p>
+                    {matchResult.bridgeExperience.map((be, i) => (
+                       <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-indigo-100/50">
+                         <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Gap: {be.gap}</p>
+                         <p className="text-xs text-indigo-900 font-medium">{be.mitigation}</p>
+                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {matchResult.optimizationTips?.length > 0 && (
+                   <div className="space-y-3">
+                    <p className="text-xs font-bold text-indigo-900 uppercase pt-2">Optimization Roadmap</p>
+                    <ul className="space-y-2">
+                      {matchResult.optimizationTips.map((tip, i) => (
+                        <li key={i} className="text-xs text-indigo-900 font-medium leading-relaxed flex items-start gap-2">
+                          <span className="text-indigo-500 font-bold">{i + 1}.</span> {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderAdminMatrix = () => (
+    <div className="h-full space-y-6">
+      <div className="bg-white p-10 rounded-[3rem] border border-midnight/5 shadow-xl space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-3xl font-serif font-bold italic text-midnight">Admin Matrix</h3>
+            <p className="text-[10px] uppercase font-bold text-midnight/30 tracking-widest mt-1">Universal Control & Org Insights</p>
+          </div>
+          <div className="px-4 py-2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+            {userRole === 'universal' ? 'Universal Head' : 'Admin Head'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: 'Total Internal Pool', value: talentPool.length, icon: Users },
+            { label: 'System Matches', value: matches.length, icon: Sparkles },
+            { label: 'Organization Health', value: 'Optimal', icon: Brain }
+          ].map((stat, i) => (
+            <div key={i} className="p-6 bg-warm-gray rounded-3xl space-y-2 border border-transparent hover:border-midnight/5 transition-all">
+              <stat.icon className="w-4 h-4 text-midnight/40" />
+              <div className="text-2xl font-serif font-bold text-midnight">{stat.value}</div>
+              <div className="text-[9px] font-black uppercase text-midnight/30 tracking-widest">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {userRole === 'universal' && (
+          <div className="space-y-4 pt-4">
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-midnight/60">Manage User Permissions</h5>
+            <div className="bg-warm-gray p-6 rounded-3xl space-y-4">
+              <p className="text-[10px] text-midnight/50 leading-relaxed italic">As Universal Head, you can restrict or grant access to organizational heads and standard recruiters. Profiles are automatically deduplicated and validated during ingestion for all members.</p>
+              <button className="w-full py-4 border-2 border-dashed border-midnight/10 rounded-2xl text-[9px] font-bold uppercase text-midnight/40 hover:bg-white transition-all">
+                Access Member Management Console
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderCandidateInsights = () => (
+    <div className="h-full flex flex-col space-y-6">
+      {matchResult ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-hidden">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-8 overflow-y-auto scrollbar-hide">
+             <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Strategic Strengths
+                </h4>
+                <div className="space-y-3">
+                  {matchResult.strengths.map((s, i) => (
+                    <div key={i} className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100/50 flex gap-3">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] shrink-0">✓</div>
+                      <p className="text-xs text-emerald-900 font-medium leading-relaxed">{s}</p>
+                    </div>
+                  ))}
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-coral flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Market Gaps & Risks
+                </h4>
+                <div className="space-y-3">
+                  {matchResult.gaps.map((g, i) => (
+                    <div key={i} className="p-4 bg-coral/5 rounded-2xl border border-coral/10 flex gap-3">
+                      <div className="w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] shrink-0">!</div>
+                      <p className="text-xs text-coral font-medium leading-relaxed">{g}</p>
+                    </div>
+                  ))}
+                  {matchResult.redFlags.map((r, i) => (
+                    <div key={i} className="p-4 bg-midnight rounded-2xl border border-white/5 flex gap-3">
+                      <div className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] shrink-0">⚡</div>
+                      <p className="text-xs text-white/80 font-medium leading-relaxed">{r}</p>
+                    </div>
+                  ))}
+                </div>
+             </div>
+          </div>
+
+          <div className="bg-indigo-electric p-8 rounded-[2.5rem] shadow-2xl space-y-8 overflow-y-auto scrollbar-hide text-white">
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" /> Optimization Roadmap
+              </h4>
+              <p className="text-xs text-white/60 leading-relaxed italic">Strategic advice to maximize this candidate's selection probability.</p>
+            </div>
+            
+            <div className="space-y-4">
+              {matchResult.optimizationTips.map((tip, i) => (
+                <div key={i} className="flex gap-4 p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all cursor-default">
+                  <div className="text-2xl font-serif italic text-white/20">{i+1}</div>
+                  <p className="text-sm font-medium leading-relaxed">{tip}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-8 bg-white/10 rounded-3xl border border-white/10 mt-auto">
+               <h5 className="text-[10px] font-black uppercase tracking-widest mb-4">Selection Probability</h5>
+               <div className="flex items-end gap-3 mb-4">
+                  <div className="text-5xl font-serif font-bold italic">{matchResult.score}%</div>
+                  <span className="text-[10px] font-bold text-white/40 mb-2">High Confidence Match</span>
+               </div>
+               <button className="w-full py-4 bg-white text-indigo-electric rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-coral hover:text-white transition-all">Generate Outreach Strategy</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-midnight/20 opacity-40">
+          <Brain className="w-20 h-20 mb-6" />
+          <h3 className="text-2xl font-serif font-bold italic">Awaiting Synthesis</h3>
+          <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Run a Resume Match to unlock deep talent insights</p>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 h-screen overflow-hidden pb-10">
+      {/* Copilot Navigation Bar */}
+      <div className="flex justify-between items-center bg-white/80 backdrop-blur-md p-4 rounded-[2.5rem] border border-midnight/5 shadow-sm shrink-0">
+        <div className="flex gap-2 p-1 bg-warm-gray rounded-full">
+          <button 
+            onClick={() => setActiveTab('boolean')}
             className={cn(
-              "px-8 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
-              searchMode === 'orbit' ? "bg-midnight text-white" : "text-midnight/40 hover:text-midnight"
+              "px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+              activeTab === 'boolean' ? "bg-midnight text-white shadow-lg" : "text-midnight/40 hover:text-midnight"
             )}
           >
-            <Sparkles className="w-3.5 h-3.5" /> Orbit AI Intelligence
+            <Sparkles className="w-3.5 h-3.5" /> Boolean Generator
           </button>
           <button 
-            onClick={() => setSearchMode('xray')}
+            onClick={() => setActiveTab('resume')}
             className={cn(
-              "px-8 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
-              searchMode === 'xray' ? "bg-indigo-electric text-white" : "text-midnight/40 hover:text-midnight"
+              "px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+              activeTab === 'resume' ? "bg-indigo-electric text-white shadow-lg" : "text-midnight/40 hover:text-midnight"
             )}
           >
-            <Terminal className="w-3.5 h-3.5" /> Mission X-Ray
+            <ClipboardCheck className="w-3.5 h-3.5" /> Resume Match
+          </button>
+          <button 
+            onClick={() => setActiveTab('insights')}
+            className={cn(
+              "px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+              activeTab === 'insights' ? "bg-coral text-white shadow-lg" : "text-midnight/40 hover:text-midnight"
+            )}
+          >
+            <Brain className="w-3.5 h-3.5" /> Candidate Insights
+          </button>
+          {(userRole === 'admin' || userRole === 'universal') && (
+            <button 
+              onClick={() => setActiveTab('admin')}
+              className={cn(
+                "px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                activeTab === 'admin' ? "bg-amber-400 text-midnight shadow-lg" : "text-midnight/40 hover:text-midnight"
+              )}
+            >
+              <Users className="w-3.5 h-3.5" /> Admin Matrix
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 px-4">
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] font-black uppercase text-midnight/20 tracking-widest">System Status</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-bold text-midnight/60">AI Recruiter Copilot Active</span>
+            </div>
+          </div>
+          <div className="h-8 w-px bg-midnight/5" />
+          <button 
+            onClick={() => setSearchMode(searchMode === 'orbit' ? 'xray' : 'orbit')}
+            className="flex items-center gap-2 px-4 py-2 bg-warm-gray rounded-xl group transition-all"
+          >
+            <span className="text-[9px] font-bold uppercase text-midnight/40 group-hover:text-midnight">Mode: {searchMode === 'orbit' ? 'AI Auto' : 'Manual X-Ray'}</span>
+            <Zap className={cn("w-3.5 h-3.5 transition-colors", searchMode === 'orbit' ? "text-coral" : "text-indigo-electric")} />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Role Definition & JD / Manual Query */}
-        <section className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-midnight/5 shadow-sm space-y-8">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                "w-12 h-12 rounded-2xl flex items-center justify-center text-white transition-colors duration-500",
-                searchMode === 'orbit' ? "bg-coral" : "bg-indigo-electric"
-              )}>
-                {searchMode === 'orbit' ? <FileText className="w-6 h-6" /> : <Terminal className="w-6 h-6" />}
+      <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
+        {/* LEFT PANEL: Filters */}
+        <section className="w-[20%] bg-white p-6 rounded-[2.5rem] border border-midnight/5 shadow-sm flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between mb-4 px-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-indigo-electric/5 rounded flex items-center justify-center">
+                <Search className="w-3 h-3 text-indigo-electric" />
               </div>
-              <div>
-                <h3 className="text-2xl font-serif font-bold italic">
-                  {searchMode === 'orbit' ? 'Job Bio Index' : 'Command Center (Manual)'}
-                </h3>
-                <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
-                  {searchMode === 'orbit' ? 'Extract mission parameters from JD' : 'Configure manual boolean logic & X-Ray vectors'}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3 items-center">
-              {isSyncing && uploadStats.total > 0 && (
-                <div className="flex flex-col items-end mr-2">
-                   <div className="flex justify-between w-24 mb-1">
-                     <span className="text-[7px] font-black uppercase text-indigo-electric">Syncing</span>
-                     <span className="text-[7px] font-black uppercase text-indigo-electric">{uploadStats.eta}</span>
-                   </div>
-                   <div className="w-24 h-1 bg-indigo-100 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${uploadStats.progress}%` }}
-                        className="h-full bg-indigo-electric"
-                      />
-                   </div>
-                </div>
-              )}
-              <label className="cursor-pointer px-4 py-1.5 bg-indigo-electric/5 text-indigo-electric rounded-full border border-indigo-100 text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2">
-                <Upload className={cn("w-3 h-3", isSyncing && "animate-bounce")} /> 
-                {isSyncing ? 'Syncing...' : 'Bulk Import'}
-                <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" multiple onChange={handleTalentUpload} />
-              </label>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-midnight/80">Vector Filters</h3>
             </div>
           </div>
-
-          <div className="relative">
-            {searchMode === 'orbit' ? (
-              <textarea
-                value={jd}
-                onChange={(e) => setJd(e.target.value)}
-                placeholder="Paste the full job description here..."
-                className="w-full h-80 p-8 bg-warm-gray border border-transparent rounded-[2.5rem] focus:bg-white focus:border-coral/20 outline-none transition-all text-sm font-medium leading-relaxed resize-none"
-              />
-            ) : (
-              <div className="space-y-6">
-                <div className="p-8 bg-midnight rounded-[2.5rem] shadow-2xl space-y-6">
-                   <div className="flex items-center justify-between mb-2">
-                     <div className="flex items-center gap-2">
-                       <Terminal className="w-4 h-4 text-indigo-electric" />
-                       <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Manual Precision Builder</span>
-                     </div>
-                   </div>
-                   <textarea
-                    value={manualQuery}
-                    onChange={(e) => setManualQuery(e.target.value)}
-                    placeholder='Define your sourcing vector or edit the generated constraints...'
-                    className="w-full h-48 p-8 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-xs font-mono leading-relaxed resize-none text-indigo-200 placeholder:text-white/10"
-                  />
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <button 
-                      onClick={() => handleXRaySearch('linkedin')}
-                      className="py-4 bg-white/5 hover:bg-indigo-electric text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
-                    >
-                      <Search className="w-3.5 h-3.5" /> LinkedIn X-Ray
-                    </button>
-                    <button 
-                      onClick={() => handleXRaySearch('dribbble')}
-                      className="py-4 bg-white/5 hover:bg-pink-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
-                    >
-                      <Globe className="w-3.5 h-3.5" /> Dribbble
-                    </button>
-                    <button 
-                      onClick={() => handleXRaySearch('coroflot')}
-                      className="py-4 bg-white/5 hover:bg-orange-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
-                    >
-                      <Monitor className="w-3.5 h-3.5" /> Coroflot
-                    </button>
-                    <button 
-                      onClick={handleGenerate}
-                      className="py-4 bg-white/10 hover:bg-white text-white hover:text-midnight rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/10"
-                    >
-                      <Users className="w-3.5 h-3.5" /> Search Internal
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {searchMode === 'orbit' && (
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating || !jd.trim()}
-                className="absolute bottom-6 right-6 px-10 py-4 bg-midnight hover:bg-coral text-white rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all shadow-2xl flex items-center gap-3 disabled:opacity-50"
-              >
-                {isGenerating ? <Zap className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {isGenerating ? 'Processing...' : 'Activate AI Orbit'}
-              </button>
-            )}
+          <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
+            {renderFilters()}
           </div>
         </section>
 
-        {/* Advanced Filters */}
-        <section className="bg-white p-10 rounded-[3rem] border border-midnight/5 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-8">
+        {/* CENTER PANEL: Core Logic */}
+        <section className="flex-1 flex flex-col overflow-hidden">
+           <div className="flex-1 overflow-y-auto scrollbar-hide pr-2">
+              {activeTab === 'boolean' && renderBooleanGenerator()}
+              {activeTab === 'resume' && renderResumeMatch()}
+              {activeTab === 'insights' && renderCandidateInsights()}
+              {activeTab === 'admin' && renderAdminMatrix()}
+           </div>
+        </section>
+
+        {/* RIGHT PANEL: Output & Archive */}
+        <section className="w-[30%] bg-white p-8 rounded-[3rem] border border-midnight/5 shadow-sm flex flex-col overflow-hidden">
+          <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-electric/10 text-indigo-electric rounded-xl flex items-center justify-center">
-                <Search className="w-5 h-5" />
+              <div className="w-10 h-10 bg-indigo-electric text-white rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-serif font-bold italic">Manual Precision</h3>
+              <h3 className="text-xl font-serif font-bold italic">Internal Archive</h3>
             </div>
-            {matches.length > 0 && <span className="text-[10px] font-bold text-emerald-500">{matches.length} Hits</span>}
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{matches.length} Matches</span>
+              <p className="text-[8px] text-midnight/20 font-bold uppercase mt-1">Real-time Sync</p>
+            </div>
           </div>
 
-          <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
-            <div className="space-y-3 relative">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-                <Terminal className="w-3.5 h-3.5" /> Core Target
-              </label>
-              <input 
-                value={title} 
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  updateSuggestions('title', e.target.value);
-                }} 
-                onFocus={() => updateSuggestions('title', title)}
-                onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
-                placeholder="Target Job Title" 
-                className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
-              />
-              <AnimatePresence>
-                {activeSuggestionField === 'title' && filteredSuggestions.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
-                  >
-                    {filteredSuggestions.map((s, i) => (
-                      <button 
-                        key={i}
-                        onClick={() => handleSuggestionSelect('title', s)}
-                        className="w-full px-6 py-3 text-left text-[10px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-                <Brain className="w-3.5 h-3.5" /> High-Intensity Keywords
-              </label>
-              <input 
-                value={skillQuery} 
-                onChange={(e) => setSkillQuery(e.target.value)} 
-                placeholder="e.g. React, Node.js, AWS (Comma separated)" 
-                className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
-              />
-            </div>
-
-            {/* Location Filter */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5" /> Geo-Targeting
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <input 
-                    value={geoParams.city} 
-                    onChange={(e) => {
-                      setGeoParams({...geoParams, city: e.target.value});
-                      updateSuggestions('city', e.target.value);
-                    }} 
-                    onFocus={() => updateSuggestions('city', geoParams.city)}
-                    onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
-                    placeholder="City" 
-                    className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
-                  />
-                  <AnimatePresence>
-                    {activeSuggestionField === 'city' && filteredSuggestions.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
-                      >
-                        {filteredSuggestions.map((s, i) => (
-                          <button 
-                            key={i}
-                            onClick={() => handleSuggestionSelect('city', s)}
-                            className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+          <div className="flex-1 space-y-4 overflow-y-auto pr-2 scrollbar-hide">
+            {(userPlan === 'free' ? matches.slice(0, 3) : matches).length > 0 ? (userPlan === 'free' ? matches.slice(0, 3) : matches).map((c) => (
+              <div key={c.id} className="p-5 bg-warm-gray/30 rounded-[1.5rem] border border-transparent hover:border-indigo-electric/20 hover:bg-white transition-all group flex items-start gap-4">
+                <div className="w-12 h-12 bg-indigo-electric text-white rounded-2xl flex items-center justify-center font-serif font-bold text-xl italic shrink-0 shadow-lg shadow-indigo-500/10">
+                  {c.name[0]}
                 </div>
-                <input value={geoParams.zip} onChange={(e) => setGeoParams({...geoParams, zip: e.target.value})} placeholder="Zip Code" className="p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1 bg-warm-gray rounded-xl">
-                 <span className="text-[9px] font-bold text-midnight/40 w-12 shrink-0">Radius</span>
-                 <select 
-                   value={geoParams.radius} 
-                   onChange={(e) => setGeoParams({...geoParams, radius: e.target.value})} 
-                   className="flex-1 bg-transparent text-[10px] font-bold text-indigo-electric outline-none cursor-pointer p-3"
-                 >
-                   <option value="10">10 Miles</option>
-                   <option value="20">20 Miles</option>
-                   <option value="30">30 Miles</option>
-                   <option value="50">50 Miles</option>
-                   <option value="75">75 Miles</option>
-                   <option value="100">100 Miles</option>
-                   <option value="150">150 Miles</option>
-                   <option value="200">200 Miles</option>
-                 </select>
-              </div>
-            </div>
-
-            {/* Industry / Exp */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 relative">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Briefcase className="w-3.5 h-3.5" /> Industry</label>
-                <input 
-                  value={industry} 
-                  onChange={(e) => {
-                    setIndustry(e.target.value);
-                    updateSuggestions('industry', e.target.value);
-                  }} 
-                  onFocus={() => updateSuggestions('industry', industry)}
-                  onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
-                  placeholder="e.g. Fintech" 
-                  className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/10 transition-all font-bold" 
-                />
-                <AnimatePresence>
-                  {activeSuggestionField === 'industry' && filteredSuggestions.length > 0 && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
-                    >
-                      {filteredSuggestions.map((s, i) => (
-                        <button 
-                          key={i}
-                          onClick={() => handleSuggestionSelect('industry', s)}
-                          className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3.5 h-3.5" /> Experience Track</label>
-                <select value={expLevel} onChange={(e) => setExpLevel(e.target.value as any)} className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
-                  <option value="any">Any Level</option>
-                  <option value="entry">Entry (0-2y)</option>
-                  <option value="mid">Mid-Senior (5-8y)</option>
-                  <option value="senior">Leadership (10y+)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Education / Companies */}
-            <div className="space-y-4 pt-4 border-t border-midnight/5">
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5" /> Certifications</label>
-                <input value={certifications} onChange={(e) => setCertifications(e.target.value)} placeholder="AWS Certified, CISSP, PMP..." className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><GraduationCap className="w-3.5 h-3.5" /> Graduation Year / Degree</label>
-                <div className="flex gap-2">
-                  <input value={gradYear} onChange={(e) => setGradYear(e.target.value)} placeholder="Year" className="w-24 p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />
-                  <select value={degree} onChange={(e) => setDegree(e.target.value)} className="flex-1 p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
-                    <option>Any Degree</option>
-                    <option>Bachelors</option>
-                    <option>Masters</option>
-                    <option>PhD</option>
-                  </select>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <h4 className="text-sm font-bold text-midnight truncate">{c.name}</h4>
+                      <p className="text-[8px] text-midnight/60 font-bold uppercase">{c.title}</p>
+                    </div>
+                    <div className="text-[10px] font-bold text-indigo-electric">{c.score}%</div>
+                  </div>
+                  <p className="text-[9px] text-midnight/60 line-clamp-2 italic mb-3 leading-relaxed">
+                    {c.resumeSnippet}
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setPreviewCandidate(c)} className="px-3 py-1 bg-midnight text-white rounded-lg text-[8px] font-bold uppercase">View</button>
+                    <button className="px-3 py-1 bg-white border border-midnight/5 rounded-lg text-[8px] font-bold uppercase">Save</button>
+                  </div>
                 </div>
               </div>
-              
-              <div className="space-y-2 relative">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> Target Companies</label>
-                <input 
-                  value={companies} 
-                  onChange={(e) => {
-                    setCompanies(e.target.value);
-                    updateSuggestions('companies', e.target.value);
-                  }} 
-                  onFocus={() => updateSuggestions('companies', companies)}
-                  onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
-                  placeholder="FAANG, Shopify, Stripe..." 
-                  className="w-full p-4 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/10 transition-all font-bold" 
-                />
-                <AnimatePresence>
-                  {activeSuggestionField === 'companies' && filteredSuggestions.length > 0 && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute z-50 left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-midnight/5 overflow-hidden"
-                    >
-                      {filteredSuggestions.map((s, i) => (
-                        <button 
-                          key={i}
-                          onClick={() => handleSuggestionSelect('companies', s)}
-                          className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            )) : (
+              <div className="h-full flex flex-col items-center justify-center opacity-10 py-20">
+                <Users className="w-16 h-16 mb-4" />
+                <p className="text-[10px] font-bold uppercase tracking-widest">Archive Empty</p>
               </div>
-
-               <label className="flex items-center gap-3 p-3 bg-indigo-electric/5 rounded-xl cursor-pointer hover:bg-indigo-electric/10 transition-all">
-                <input type="checkbox" checked={relocation} onChange={(e) => setRelocation(e.target.checked)} className="w-4 h-4 rounded accent-indigo-electric" />
-                <span className="text-[10px] font-bold text-midnight/60">Open to Relocation Only</span>
-              </label>
+            )}
+            
+            {userPlan === 'free' && matches.length > 3 && (
+              <div className="p-5 bg-indigo-electric/5 border border-indigo-100 rounded-[1.5rem] flex flex-col items-center text-center">
+                <Sparkles className="w-6 h-6 text-indigo-electric mb-2" />
+                <h4 className="text-[10px] font-black uppercase text-midnight tracking-widest mb-1">Unlock {matches.length - 3} More Matches</h4>
+                <p className="text-[9px] text-midnight/60 mb-3">Upgrade to Pro to see your full candidate pipeline and access deep AI insights.</p>
+                <button className="w-full py-2 bg-indigo-electric text-white text-[9px] font-bold uppercase tracking-widest rounded-lg hover:bg-midnight transition-colors">
+                  Upgrade Now
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 pt-4 border-t border-midnight/5">
+            <div className="flex gap-2 mb-4">
+               {isSyncing && uploadStats.total > 0 && (
+                <div className="flex-1 space-y-2">
+                   <div className="flex justify-between">
+                     <span className="text-[8px] font-bold uppercase text-indigo-electric">Syncing Archive</span>
+                     <span className="text-[8px] font-bold text-indigo-electric">{uploadStats.eta}</span>
+                   </div>
+                   <div className="h-1 bg-indigo-50 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${uploadStats.progress}%` }} className="h-full bg-indigo-electric" />
+                   </div>
+                </div>
+               )}
             </div>
+            <label className="cursor-pointer w-full py-4 bg-indigo-electric/5 text-indigo-electric rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-electric/10 transition-all">
+              <Upload className="w-3.5 h-3.5" /> 
+              {isSyncing ? 'Sync in Progress' : 'Bulk Archive Upload'}
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" multiple onChange={handleTalentUpload} />
+            </label>
           </div>
         </section>
       </div>
 
-      <AnimatePresence>
-        {(result || matches.length > 0) && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-10"
-          >
-            {/* Boolean Results */}
-            <div className="space-y-8">
-               <div className="bg-midnight text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
-                <div className="flex justify-between items-center mb-8">
-                  <div className="flex items-center gap-3">
-                    <Terminal className="w-5 h-5 text-coral" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Mission Logic Protocol</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {result && (
-                      <button 
-                        onClick={() => navigator.clipboard.writeText(editableQuery)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-[10px] font-bold uppercase tracking-widest"
-                      >
-                        <Copy className="w-3.5 h-3.5" /> Copy
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <textarea 
-                    value={editableQuery || manualQuery}
-                    onChange={(e) => setEditableQuery(e.target.value)}
-                    className="w-full h-40 p-8 bg-white/5 p-8 rounded-3xl border border-white/10 font-mono text-xs leading-relaxed text-indigo-200 shadow-inner outline-none focus:border-indigo-electric/40 transition-all resize-none"
-                    placeholder="Boolean logic will appear here..."
-                  />
-
-                  <div className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <h5 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5" /> Geographic Precision (X-Ray Overlay)
-                      </h5>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3">
-                       <input 
-                         value={geoParams.city}
-                         onChange={(e) => setGeoParams({...geoParams, city: e.target.value})}
-                         placeholder="City"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
-                       />
-                       <input 
-                         value={geoParams.state}
-                         onChange={(e) => setGeoParams({...geoParams, state: e.target.value})}
-                         placeholder="State"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
-                       />
-                       <input 
-                         value={geoParams.country}
-                         onChange={(e) => setGeoParams({...geoParams, country: e.target.value})}
-                         placeholder="Country"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
-                       />
-                       <input 
-                         value={geoParams.zip}
-                         onChange={(e) => setGeoParams({...geoParams, zip: e.target.value})}
-                         placeholder="Zip"
-                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-coral/40 transition-all font-bold"
-                       />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => handleXRaySearch('linkedin')}
-                      className="py-5 bg-indigo-electric hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5 shadow-xl shadow-indigo-500/10"
-                    >
-                      <Search className="w-3.5 h-3.5" /> LinkedIn X-Ray Intelligence
-                    </button>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button 
-                        onClick={() => handleXRaySearch('dribbble')}
-                        className="py-5 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5"
-                      >
-                        <Globe className="w-3.5 h-3.5" /> Dribbble Vector
-                      </button>
-                      <button 
-                        onClick={() => handleXRaySearch('coroflot')}
-                        className="py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-white/5"
-                      >
-                        <Monitor className="w-3.5 h-3.5" /> Coroflot Search
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {result?.roleBlueprint && (
-                  <div className="mt-8 pt-8 border-t border-white/10 space-y-6">
-                    <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                      <p className="text-[10px] font-black uppercase text-coral mb-2 flex items-center gap-2">
-                        <Monitor className="w-3.5 h-3.5" /> The Software Stack
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {result.roleBlueprint.software.map((s, i) => (
-                          <span key={i} className="px-3 py-1.5 bg-white/5 rounded-full text-[10px] text-indigo-100 font-medium">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                         <p className="text-[10px] font-black uppercase text-indigo-300 mb-2 flex items-center gap-2">
-                           <Brain className="w-3.5 h-3.5" /> Core Skills
-                         </p>
-                         <ul className="space-y-1">
-                           {result.roleBlueprint.skillSet.slice(0, 5).map((s, i) => (
-                             <li key={i} className="text-[10px] text-white/60 flex items-center gap-2">
-                               <div className="w-1 h-1 bg-indigo-electric/40 rounded-full" /> {s}
-                             </li>
-                           ))}
-                         </ul>
-                      </div>
-                      <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                         <p className="text-[10px] font-black uppercase text-emerald-400 mb-2 flex items-center gap-2">
-                           <Globe className="w-3.5 h-3.5" /> Industry Logic
-                         </p>
-                         <ul className="space-y-1">
-                           {result.roleBlueprint.industry.map((s, i) => (
-                             <li key={i} className="text-[10px] text-white/60 flex items-center gap-2">
-                               <div className="w-1 h-1 bg-emerald-400/40 rounded-full" /> {s}
-                             </li>
-                           ))}
-                         </ul>
-                      </div>
-                    </div>
-
-                    <div className="p-6 bg-indigo-electric/5 rounded-3xl border border-indigo-electric/10">
-                      <p className="text-[9px] font-bold text-indigo-electric uppercase tracking-widest mb-2 italic">"{result.roleBlueprint.brief}"</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-10">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5 flex items-center gap-2">
-                    <Info className="w-4 h-4" /> Recommended Search Titles
-                  </h4>
-                  <div className="flex flex-wrap gap-2.5">
-                    {(result?.suggestedTitles || [title || 'Search Query']).map((t, i) => (
-                      <span key={i} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold text-white/60 hover:text-white hover:border-coral transition-all cursor-default">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Internal Talent & Preview */}
-            <div className="bg-white p-10 rounded-[3.5rem] border border-midnight/5 shadow-sm space-y-8">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-electric text-white rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-2xl font-serif font-bold italic">Internal Matches</h3>
-                </div>
-                <div className="flex flex-col items-end">
-                   <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{matches.length} Matches Found</span>
-                   <p className="text-[8px] text-midnight/20 font-bold uppercase mt-1">Cross-referenced with filters</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
-                {matches.length > 0 ? matches.map((c) => (
-                  <div key={c.id} className="p-6 bg-warm-gray/30 rounded-[2rem] border border-transparent hover:border-indigo-electric/20 hover:bg-white transition-all group flex items-start gap-4 cursor-default">
-                    <div className="w-14 h-14 bg-indigo-electric text-white rounded-2xl flex items-center justify-center font-serif font-bold text-2xl italic shrink-0 shadow-lg shadow-indigo-500/10">
-                      {c.name[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="text-lg font-serif font-bold text-midnight italic truncate">{c.name}</h4>
-                          <p className="text-[10px] text-midnight/40 font-bold uppercase tracking-wider">{c.title}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-bold text-indigo-electric">{c.score}%</div>
-                          <div className="text-[8px] text-midnight/20 uppercase font-bold tracking-widest mt-0.5">Semantic Fit</div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-white/50 rounded-xl border border-midnight/5 mb-4 group-hover:bg-warm-gray/10 transition-colors">
-                        <p className="text-[10px] text-midnight/60 font-medium italic leading-relaxed line-clamp-2">
-                           {c.resumeSnippet.split(' ').map((word: string, i: number) => {
-                             const isMatch = c.highlightedMatches?.some((m: any) => word.toLowerCase().includes(m.toLowerCase()));
-                             return isMatch ? <span key={i} className="text-indigo-electric font-bold bg-indigo-50 px-1 rounded mx-0.5 underline decoration-indigo-electric/20">{word} </span> : word + ' ';
-                           })}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-4">
-                         <button 
-                          onClick={() => setPreviewCandidate(c)}
-                          className="px-4 py-2 bg-indigo-electric text-white rounded-xl text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-midnight transition-colors"
-                         >
-                           <Eye className="w-3 h-3" /> Quick Preview
-                         </button>
-                         <button className="px-4 py-2 border border-midnight/5 rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-white transition-colors">
-                           View Profile
-                         </button>
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-20 text-center opacity-20 select-none">
-                    <Search className="w-12 h-12 mx-auto mb-4" />
-                    <p className="text-xs font-bold uppercase tracking-[0.2em]">No strict matches found</p>
-                  </div>
-                )}
-              </div>
-              <button className="w-full mt-2 py-5 border-2 border-dashed border-midnight/5 rounded-[2rem] text-midnight/20 hover:text-midnight/40 hover:border-midnight/10 transition-all font-bold text-[10px] uppercase tracking-[0.3em]">
-                Explore Deep Talent Archive
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Quick Preview Modal */}
+      {/* Quick Preview Modal (Overlays Everything) */}
       <AnimatePresence>
         {previewCandidate && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-midnight/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
           >
             <motion.div 
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white w-full max-w-2xl rounded-[4rem] p-12 shadow-2xl space-y-10 relative overflow-hidden"
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="bg-white w-full max-w-2xl rounded-[3rem] p-10 shadow-2xl relative"
             >
               <button 
                 onClick={() => setPreviewCandidate(null)}
-                className="absolute top-10 right-10 w-12 h-12 bg-warm-gray rounded-full flex items-center justify-center hover:bg-neutral-200 transition-all z-10"
+                className="absolute top-8 right-8 w-10 h-10 bg-warm-gray rounded-full flex items-center justify-center hover:bg-neutral-200"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
-
-              <div className="flex items-center gap-8 border-b border-midnight/5 pb-10">
-                <div className="w-24 h-24 bg-midnight text-white rounded-[2rem] flex items-center justify-center font-serif font-bold text-4xl italic overflow-hidden shadow-2xl">
+              
+              <div className="flex items-center gap-6 mb-8">
+                <div className="w-20 h-20 bg-midnight text-white rounded-[1.5rem] flex items-center justify-center font-serif font-bold text-3xl italic">
                   {previewCandidate.name[0]}
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-4xl font-serif font-bold italic text-midnight">{previewCandidate.name}</h3>
-                  <p className="text-xl font-medium text-midnight/40 italic">{previewCandidate.title}</p>
+                <div>
+                  <h3 className="text-3xl font-serif font-bold italic">{previewCandidate.name}</h3>
+                  <p className="text-lg text-midnight/40 font-medium italic">{previewCandidate.title}</p>
                 </div>
               </div>
 
-              <div className="space-y-8">
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="space-y-1">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20">Experience</span>
-                       <p className="text-sm font-bold text-midnight">{previewCandidate.experience} Years</p>
-                    </div>
-                    <div className="space-y-1">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20">Degree</span>
-                       <p className="text-sm font-bold text-midnight">{previewCandidate.degree}</p>
-                    </div>
-                    <div className="space-y-1">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20">Grad Year</span>
-                       <p className="text-sm font-bold text-midnight">{previewCandidate.gradYear}</p>
-                    </div>
-                    <div className="space-y-1">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20">Location</span>
-                       <p className="text-sm font-bold text-midnight">{previewCandidate.location}</p>
-                    </div>
-                 </div>
-
-                 <div className="bg-indigo-electric/5 p-8 rounded-[3rem] border border-indigo-100 space-y-4">
-                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2">
-                       <Eye className="w-4 h-4" /> Intelligence Match Preview
-                    </h5>
-                    <p className="text-sm text-midnight/80 font-medium leading-relaxed italic">
-                       {previewCandidate.resumeSnippet.split(' ').map((word: string, i: number) => {
-                             const isMatch = previewCandidate.highlightedMatches?.some((m: string) => word.toLowerCase().includes(m.toLowerCase()));
-                             return isMatch ? <span key={i} className="text-indigo-electric font-bold underline decoration-indigo-electric/40">{word} </span> : word + ' ';
-                        })}
-                    </p>
-                 </div>
-
-                 <div className="flex gap-4 pt-4">
-                    <button className="flex-1 py-5 bg-midnight text-white rounded-[2rem] font-bold text-xs uppercase tracking-widest hover:bg-coral transition-all">
-                       Connect Immediately
-                    </button>
-                    <button className="flex-1 py-5 bg-warm-gray text-midnight rounded-[2rem] font-bold text-xs uppercase tracking-widest hover:bg-neutral-200 transition-all">
-                       Add to Shortlist
-                    </button>
-                 </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                   <div className="bg-warm-gray/30 p-4 rounded-xl">
+                      <span className="text-[8px] font-bold uppercase text-midnight/30">Experience</span>
+                      <p className="text-xs font-bold">{previewCandidate.experience}Y</p>
+                   </div>
+                   <div className="bg-warm-gray/30 p-4 rounded-xl">
+                      <span className="text-[8px] font-bold uppercase text-midnight/30">Degree</span>
+                      <p className="text-xs font-bold truncate">{previewCandidate.degree}</p>
+                   </div>
+                   <div className="bg-warm-gray/30 p-4 rounded-xl">
+                      <span className="text-[8px] font-bold uppercase text-midnight/30">Location</span>
+                      <p className="text-xs font-bold truncate">{previewCandidate.location}</p>
+                   </div>
+                </div>
+                <div className="p-6 bg-indigo-electric/5 rounded-2xl border border-indigo-100">
+                  <p className="text-xs text-midnight font-medium leading-relaxed italic">
+                    {previewCandidate.resumeSnippet}
+                  </p>
+                </div>
+                <button className="w-full py-4 bg-midnight text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-coral">
+                  Unlock Full Metadata
+                </button>
               </div>
             </motion.div>
           </motion.div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { 
   LayoutDashboard, 
   Search, 
+  Linkedin,
   FileText, 
   History, 
   ShieldCheck, 
@@ -30,7 +31,9 @@ interface SidebarProps {
   setCurrentPage: (page: Page) => void;
   isLinkedInConnected: boolean;
   onConnectLinkedIn: () => void;
+  onLogout: () => void;
   appMode: AppMode;
+  userLevel?: 'member' | 'admin' | 'superadmin';
   onSwitchMode: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -41,41 +44,54 @@ export default function Sidebar({
   setCurrentPage, 
   isLinkedInConnected, 
   onConnectLinkedIn, 
+  onLogout,
   appMode, 
+  userLevel,
   onSwitchMode,
   isCollapsed,
   onToggleCollapse
 }: SidebarProps) {
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await onLogout();
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
   const recruiterItems = [
-    { id: 'dashboard' as Page, label: 'Executive Nexus', icon: LayoutDashboard },
-    { id: 'sourcing' as Page, label: 'Selection Orbit', icon: Search },
-    { id: 'resume-vault' as Page, label: 'Library', icon: ShieldCheck },
-    { id: 'postings' as Page, label: 'Mission Briefs', icon: Briefcase },
-    { id: 'candidates' as Page, label: 'Engagement Flow', icon: Users },
-    { id: 'intelligence' as Page, label: 'Insight Engine', icon: Zap },
-    { id: 'assistant' as Page, label: 'Advisor', icon: Bot },
-    { id: 'history' as Page, label: 'Performance Analytics', icon: BarChart3 },
+    { id: 'dashboard' as Page, label: 'Dash', icon: LayoutDashboard },
+    { id: 'sourcing' as Page, label: 'Find Talent', icon: Search },
+    { id: 'resume-vault' as Page, label: 'Vault', icon: ShieldCheck },
+    { id: 'postings' as Page, label: 'Jobs', icon: Briefcase },
+    { id: 'candidates' as Page, label: 'Talent Pool', icon: Users },
+    { id: 'intelligence' as Page, label: 'AI Intel', icon: Zap },
+    { id: 'assistant' as Page, label: 'Assistant', icon: Bot },
+    { id: 'history' as Page, label: 'Stats', icon: BarChart3 },
   ];
 
   const hunterItems = [
-    { id: 'dashboard' as Page, label: 'Success Nexus', icon: LayoutDashboard },
-    { id: 'job-feed' as Page, label: 'Opportunity Orbit', icon: Globe },
-    { id: 'personal-iq' as Page, label: 'Presence Lab', icon: Sparkles },
-    { id: 'resume-vault' as Page, label: 'Secure Portfolio', icon: FileText },
-    { id: 'interview-prep' as Page, label: 'Readiness Engine', icon: ShieldCheck },
+    { id: 'dashboard' as Page, label: 'Hub', icon: LayoutDashboard },
+    { id: 'job-feed' as Page, label: 'Job Board', icon: Globe },
+    { id: 'personal-iq' as Page, label: 'My Brand', icon: Sparkles },
+    { id: 'linkedin-intelligence' as Page, label: 'LinkedIn IQ', icon: Linkedin },
+    { id: 'resume-vault' as Page, label: 'My Docs', icon: FileText },
+    { id: 'interview-prep' as Page, label: 'Mock Int.', icon: ShieldCheck },
     { id: 'assistant' as Page, label: 'Career AI', icon: Bot },
-    { id: 'history' as Page, label: 'Performance Analytics', icon: BarChart3 },
+    { id: 'history' as Page, label: 'Stats', icon: BarChart3 },
   ];
 
+  const adminItem = { id: 'admin' as Page, label: 'Team Settings', icon: ShieldCheck };
+  const superAdminItem = { id: 'superadmin' as Page, label: 'God Mode', icon: ShieldCheck };
+
   const menuItems = appMode === 'recruiter' ? recruiterItems : hunterItems;
+  const finalMenuItems = [...menuItems];
+  
+  if (userLevel === 'superadmin') {
+    finalMenuItems.push(superAdminItem);
+  } else if (userLevel === 'admin') {
+    finalMenuItems.push(adminItem);
+  }
 
   return (
     <div className={cn(
@@ -93,7 +109,7 @@ export default function Sidebar({
             {!isCollapsed && (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                 <h1 className="text-xl font-serif font-bold tracking-tight leading-none text-white whitespace-nowrap">
-                  {appMode === 'recruiter' ? 'Recruit AI' : 'Career AI'}
+                  {appMode === 'recruiter' ? 'Recruit IQ' : 'Career IQ'}
                 </h1>
                 <span className={cn(
                   "text-[8px] font-bold uppercase tracking-[0.3em] mt-1",
@@ -114,7 +130,7 @@ export default function Sidebar({
         </div>
 
         <nav className="space-y-2">
-          {menuItems.map((item) => (
+          {finalMenuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setCurrentPage(item.id)}

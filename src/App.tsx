@@ -23,13 +23,16 @@ import TalentArchivePage from './pages/TalentArchivePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import JobInventoryPage from './pages/JobInventoryPage';
 import ProfilePage from './pages/ProfilePage';
-import { Page, User, AppMode, SearchMode } from './types';
+import LinkedInIntelligencePage from './pages/LinkedInIntelligencePage';
+import AdminPage from './pages/AdminPage';
+import SuperAdminPage from './pages/SuperAdminPage';
+import { Page, User, AppMode, SearchMode, IndustryType, EngagementType, TaxType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Bot, Loader2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestoreErrorHandler';
 
 export default function App() {
@@ -51,6 +54,12 @@ export default function App() {
     const handleLocation = () => {
       if (window.location.hash === '#/privacy') {
         setCurrentPage('privacy');
+      } else if (window.location.hash === '#/linkedin-intelligence') {
+        setCurrentPage('linkedin-intelligence');
+      } else if (window.location.hash === '#/admin') {
+        setCurrentPage('admin');
+      } else if (window.location.hash === '#/superadmin') {
+        setCurrentPage('superadmin');
       }
     };
 
@@ -78,87 +87,108 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Safety timeout for loading state
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth check timed out. Forcing loading to false.");
+        setLoading(false);
+      }
+    }, 5000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Fetch user metadata from Firestore
-        let userDoc;
-        try {
-          userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        } catch (err) {
-          handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
-          setLoading(false);
-          return;
-        }
-        
-        let userData: User;
-        if (userDoc.exists()) {
-          const profile = userDoc.data();
-          const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
-          userData = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: profile.name || profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            isLoggedIn: true,
-            role: profile.role || (isCompany ? 'corp' : 'candidate'),
-            isCompanyUser: isCompany || profile.role === 'recruiter',
-            selectedMode: profile.selectedMode,
-            title: profile.title,
-            bio: profile.bio,
-            location: profile.location,
-            skills: profile.skills,
-            onboardingCompleted: profile.onboardingCompleted
-          };
-        } else {
-          // Initialize user in Firestore
-          const storedRole = localStorage.getItem('intendedRole');
-          const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
-          
-          let role: 'corp' | 'candidate' = isCompany ? 'corp' : 'candidate';
-          if (storedRole === 'recruiter') role = 'corp';
-          if (storedRole === 'hunter') role = 'candidate';
-          
-          const selectedMode = storedRole === 'recruiter' ? 'recruiter' : storedRole === 'hunter' ? 'hunter' : undefined;
-
-          userData = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            isLoggedIn: true,
-            role: role,
-            isCompanyUser: role === 'corp',
-            selectedMode: selectedMode,
-            onboardingCompleted: false
-          };
-
+      clearTimeout(timeout);
+      try {
+        if (firebaseUser) {
+          // Fetch user metadata from Firestore
+          let userDoc;
           try {
-            await setDoc(doc(db, 'users', firebaseUser.uid), {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              role: role,
-              selectedMode: selectedMode || null,
-              onboardingCompleted: false,
-              createdAt: new Date().toISOString()
-            });
-            localStorage.removeItem('intendedRole');
+            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           } catch (err) {
-            handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+            handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
+            return;
+          }
+          
+          let userData: User;
+          if (userDoc.exists()) {
+            const profile = userDoc.data();
+            const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
+            userData = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: profile.name || profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              isLoggedIn: true,
+              role: profile.role || (isCompany ? 'corp' : 'candidate'),
+              isCompanyUser: isCompany || profile.role === 'recruiter',
+              selectedMode: profile.selectedMode,
+              title: profile.title,
+              bio: profile.bio,
+              location: profile.location,
+              skills: profile.skills,
+              industryTypes: profile.industryTypes,
+              engagementTypes: profile.engagementTypes,
+              taxTypes: profile.taxTypes,
+              onboardingCompleted: profile.onboardingCompleted,
+              organizationId: profile.organizationId,
+              userLevel: profile.userLevel || (firebaseUser.email === 'king007.2311@gmail.com' ? 'superadmin' : 'member')
+            };
+          } else {
+            // Initialize user in Firestore
+            const storedRole = localStorage.getItem('intendedRole');
+            const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
+            
+            let role: 'corp' | 'candidate' = isCompany ? 'corp' : 'candidate';
+            if (storedRole === 'recruiter') role = 'corp';
+            if (storedRole === 'hunter') role = 'candidate';
+            
+            const selectedMode = storedRole === 'recruiter' ? 'recruiter' : storedRole === 'hunter' ? 'hunter' : undefined;
+
+            userData = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              isLoggedIn: true,
+              role: role,
+              isCompanyUser: role === 'corp',
+              selectedMode: selectedMode,
+              onboardingCompleted: false
+            };
+
+            try {
+              await setDoc(doc(db, 'users', firebaseUser.uid), {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                role: role,
+                selectedMode: selectedMode || null,
+                onboardingCompleted: false,
+                createdAt: new Date().toISOString()
+              });
+              localStorage.removeItem('intendedRole');
+            } catch (err) {
+              handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+            }
+          }
+          setUser(userData);
+        } else {
+          // Check for Demo/LinkedIn Session
+          const isDemo = localStorage.getItem('isDemoLoggedIn') === 'true';
+          const demoUserJson = localStorage.getItem('demoUser');
+          if (isDemo && demoUserJson) {
+            setUser(JSON.parse(demoUserJson));
+          } else {
+            setUser(null);
           }
         }
-        setUser(userData);
-      } else {
-        // Check for Demo/LinkedIn Session
-        const isDemo = localStorage.getItem('isDemoLoggedIn') === 'true';
-        const demoUserJson = localStorage.getItem('demoUser');
-        if (isDemo && demoUserJson) {
-          setUser(JSON.parse(demoUserJson));
-        } else {
-          setUser(null);
-        }
+      } catch (globalErr) {
+        console.error("Auth state processing error:", globalErr);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, []);
 
   const handleLogin = (email: string, linkedinProfile?: any) => {
@@ -185,16 +215,48 @@ export default function App() {
     localStorage.setItem('demoUser', JSON.stringify(userData));
   };
 
-  const handleSelectAppMode = async (mode: AppMode) => {
+  const handleSelectAppMode = async (mode: AppMode, options?: { 
+    orgData?: { name: string, domain: string },
+    industryTypes?: IndustryType[],
+    engagementTypes?: EngagementType[],
+    taxTypes?: TaxType[]
+  }) => {
     if (user) {
-      const updatedUser = { ...user, selectedMode: mode };
+      const updates: any = { 
+        selectedMode: mode,
+        industryTypes: options?.industryTypes,
+        engagementTypes: options?.engagementTypes,
+        taxTypes: options?.taxTypes
+      };
+      
+      if (options?.orgData) {
+        updates.role = 'corp';
+        updates.userLevel = 'admin';
+        updates.isCompanyUser = true;
+      }
+
+      const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       setCurrentPage('dashboard');
       
       // Persist selection
       if (auth.currentUser) {
         try {
-          await setDoc(doc(db, 'users', auth.currentUser.uid), { selectedMode: mode }, { merge: true });
+          if (options?.orgData) {
+            // Create Organization document
+            const orgRef = doc(collection(db, 'organizations'));
+            await setDoc(orgRef, {
+              name: options.orgData.name,
+              domain: options.orgData.domain,
+              ownerId: auth.currentUser.uid,
+              createdAt: new Date().toISOString(),
+              plan: 'free',
+              status: 'active'
+            });
+            updates.organizationId = orgRef.id;
+          }
+          
+          await setDoc(doc(db, 'users', auth.currentUser.uid), updates, { merge: true });
         } catch (err) {
           handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
         }
@@ -211,8 +273,65 @@ export default function App() {
     }
   };
 
-  const handleConnectLinkedIn = () => {
-    setIsLinkedInConnected(!isLinkedInConnected);
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      localStorage.removeItem('isDemoLoggedIn');
+      localStorage.removeItem('demoUser');
+      localStorage.removeItem('linkedinProfile');
+      setUser(null);
+      setCurrentPage('dashboard');
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+  const handleConnectLinkedIn = async () => {
+    const newState = !isLinkedInConnected;
+    
+    if (newState) {
+      // Simulate LinkedIn Auth Process
+      const confirmConnect = window.confirm("Connect your LinkedIn account to Recruit IQ? This will allow us to analyze your profile and provide strategic insights.");
+      if (!confirmConnect) return;
+
+      setIsLinkedInConnected(true);
+      if (user) {
+        const updatedUser = { ...user, linkedInConnected: true };
+        setUser(updatedUser);
+        
+        if (auth.currentUser) {
+          try {
+            await setDoc(doc(db, 'users', auth.currentUser.uid), { linkedInConnected: true }, { merge: true });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+          }
+        }
+      }
+      localStorage.setItem('linkedinProfile', JSON.stringify({ 
+        name: user?.name || 'LinkedIn User', 
+        connectedAt: new Date().toISOString(),
+        headline: 'Strategic Professional',
+        connections: '500+'
+      }));
+    } else {
+      const confirmDisconnect = window.confirm("Disconnect your LinkedIn account? You will lose access to LinkedIn Intelligence features.");
+      if (!confirmDisconnect) return;
+
+      setIsLinkedInConnected(false);
+      if (user) {
+        const updatedUser = { ...user, linkedInConnected: false };
+        setUser(updatedUser);
+        
+        if (auth.currentUser) {
+          try {
+            await setDoc(doc(db, 'users', auth.currentUser.uid), { linkedInConnected: false }, { merge: true });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+          }
+        }
+      }
+      localStorage.removeItem('linkedinProfile');
+    }
   };
 
   const handleReverseMarket = (candidate: any) => {
@@ -253,7 +372,7 @@ export default function App() {
       case 'dashboard':
         return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={setCurrentPage} appMode={user.selectedMode || 'recruiter'} />;
       case 'sourcing':
-        return <SourcingPage isLinkedInConnected={isLinkedInConnected} />;
+        return <SourcingPage isLinkedInConnected={isLinkedInConnected} onConnectLinkedIn={handleConnectLinkedIn} />;
       case 'candidates':
         return <CandidatesPage />;
       case 'intelligence':
@@ -278,6 +397,12 @@ export default function App() {
         return <AnalyticsPage />;
       case 'assistant':
         return <AssistantPage appMode={user.selectedMode || 'recruiter'} />;
+      case 'linkedin-intelligence':
+        return <LinkedInIntelligencePage />;
+      case 'admin':
+        return <AdminPage />;
+      case 'superadmin':
+        return <SuperAdminPage />;
       case 'profile':
         return <ProfilePage user={user} onUpdateUser={(updated) => setUser(updated)} />;
       default:
@@ -295,7 +420,9 @@ export default function App() {
         setCurrentPage={setCurrentPage} 
         isLinkedInConnected={isLinkedInConnected}
         onConnectLinkedIn={handleConnectLinkedIn}
+        onLogout={handleLogout}
         appMode={user.selectedMode}
+        userLevel={user.userLevel}
         onSwitchMode={() => setUser({ ...user, selectedMode: undefined })}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}

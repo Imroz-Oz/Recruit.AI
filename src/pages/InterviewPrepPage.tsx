@@ -17,7 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { generateInterviewQuestions } from '@/src/services/aiService';
+import { generateInterviewQuestions, evaluateInterviewAnswer } from '@/src/services/aiService';
 
 export default function InterviewPrepPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
@@ -31,18 +31,35 @@ export default function InterviewPrepPage() {
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [answer, setAnswer] = useState('');
+  const [evaluation, setEvaluation] = useState<any>(null);
+
   const fetchQuestions = async () => {
     setIsGenerating(true);
     const aiQuestions = await generateInterviewQuestions(scenario);
     if (aiQuestions && aiQuestions.length > 0) {
       setQuestions(aiQuestions);
+      setCurrentQuestion(0);
+      setAnswer('');
+      setEvaluation(null);
     }
     setIsGenerating(false);
   };
 
-  useEffect(() => {
-    // Initial fetch if desired, but we have defaults
-  }, []);
+  const handleNextQuestion = () => {
+    setCurrentQuestion((prev) => (prev + 1) % questions.length);
+    setAnswer('');
+    setEvaluation(null);
+  };
+
+  const handleEvaluate = async () => {
+    if (!answer.trim()) return;
+    setIsEvaluating(true);
+    const result = await evaluateInterviewAnswer(questions[currentQuestion % questions.length], answer);
+    setEvaluation(result);
+    setIsEvaluating(false);
+  };
 
   const toggleSession = () => setSessionStarted(!sessionStarted);
 
@@ -123,24 +140,41 @@ export default function InterviewPrepPage() {
                     </button>
                   </div>
 
-                  <div className="max-w-2xl mx-auto text-center space-y-8">
+                  <div className="max-w-2xl mx-auto text-center space-y-4">
                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">Question {currentQuestion + 1} of 10</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">Question {currentQuestion + 1} of {questions.length}</span>
                      </div>
-                     <h4 className="text-3xl font-serif font-bold text-white italic leading-relaxed">
+                     <h4 className="text-2xl font-serif font-bold text-white italic leading-relaxed">
                         "{questions[currentQuestion % questions.length]}"
                      </h4>
+                     
+                     <div className="w-full text-left mt-4 text-white">
+                        <textarea
+                          placeholder="Type or simulate your answer here..."
+                          value={answer}
+                          onChange={e => setAnswer(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-indigo-electric/50 transition-colors h-32 resize-none"
+                        ></textarea>
+                     </div>
+                     
+                     {evaluation && (
+                       <div className="text-left bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-2 mt-4 text-white animate-in fade-in slide-in-from-bottom-2">
+                         <div className="flex justify-between items-center text-emerald-400">
+                           <span className="text-xs font-bold uppercase">AI Evaluation</span>
+                           <span className="text-xl font-black">{evaluation.score}/100</span>
+                         </div>
+                         <p className="text-sm">{evaluation.feedback}</p>
+                         <p className="text-xs text-emerald-200/60 italic overflow-hidden line-clamp-2 hover:line-clamp-none transition-all">Model Answer: {evaluation.modelAnswer}</p>
+                       </div>
+                     )}
                   </div>
 
-                  <div className="mt-auto flex items-center justify-center gap-8">
-                     <button className="w-20 h-20 bg-white/5 hover:bg-white/10 text-white rounded-full flex items-center justify-center text-white/40 hover:text-red-500 transition-all border border-white/10">
-                        <Video className="w-8 h-8" />
+                  <div className="mt-auto flex items-center justify-center gap-4">
+                     <button onClick={handleEvaluate} disabled={isEvaluating || !answer} className="flex-1 py-4 bg-indigo-electric hover:bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase disabled:opacity-50 transition-all">
+                        {isEvaluating ? 'Evaluating...' : 'Analyze Answer'}
                      </button>
-                     <button className="w-28 h-28 bg-white text-midnight rounded-full flex items-center justify-center shadow-2xl shadow-indigo-500/20 hover:scale-110 active:scale-95 transition-all group/mic ring-8 ring-white/10">
-                        <Mic className="w-10 h-10 transition-colors" />
-                     </button>
-                     <button className="w-20 h-20 bg-white/5 hover:bg-white/10 text-white rounded-full flex items-center justify-center text-white/40 hover:text-amber-500 transition-all border border-white/10">
-                        <MessageSquare className="w-8 h-8" />
+                     <button onClick={handleNextQuestion} className="w-16 h-16 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center transition-all">
+                        <ArrowRight className="w-6 h-6" />
                      </button>
                   </div>
                 </motion.div>

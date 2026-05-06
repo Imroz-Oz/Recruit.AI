@@ -22,7 +22,7 @@ import {
 import { cn } from '../lib/utils';
 import { Candidate } from '@/src/types';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, where, getDoc, doc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface ResumeVaultPageProps {
@@ -49,19 +49,41 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const q = query(
-      collection(db, 'candidates'),
-      orderBy('createdAt', 'desc')
-    );
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Candidate));
-      setAllCandidates(fetched);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'candidates');
-    });
+    const fetchOrgAndCandidates = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+        if (!isMounted) return;
+        const orgId = userDoc.data()?.organizationId || 'global';
 
-    return () => unsubscribe();
+        const q = query(
+          collection(db, 'candidates'),
+          where('organizationId', '==', orgId),
+          orderBy('createdAt', 'desc')
+        );
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const fetched = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Candidate));
+          setAllCandidates(fetched);
+        }, (error) => {
+          console.error("fetch candidates error:", error);
+          if (error instanceof Error) {
+            handleFirestoreError(error, OperationType.GET, 'candidates');
+          }
+        });
+      } catch (err) {
+        console.error("fetchOrg error:", err);
+      }
+    };
+
+    fetchOrgAndCandidates();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, [auth.currentUser]);
 
   const handleIngress = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,6 +97,9 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
     const startTime = Date.now();
     
     try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const orgId = userDoc.data()?.organizationId || 'global';
+
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
         
@@ -104,6 +129,7 @@ export default function ResumeVaultPage({ userRole = 'recruiter' }: ResumeVaultP
         const text = await textPromise;
         const talent = {
           recruiterId: auth.currentUser?.uid,
+          organizationId: orgId,
           name: file.name.split('.')[0].replace(/_/g, ' ').replace(/-/g, ' '),
           title: 'Imported Talent',
           email: `${file.name.split('.')[0].toLowerCase().replace(/\s+/g, '.')}@imported.com`,

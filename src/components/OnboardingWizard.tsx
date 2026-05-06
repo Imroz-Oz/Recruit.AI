@@ -24,6 +24,8 @@ export default function OnboardingWizard({ onComplete, role }: OnboardingWizardP
   const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
     resumeUploaded: false,
+    companyName: '',
+    recruiterRole: '',
     targetRole: '',
     experienceLevel: 'mid',
     locationPreference: 'remote'
@@ -152,10 +154,14 @@ export default function OnboardingWizard({ onComplete, role }: OnboardingWizardP
                      <div className="space-y-4">
                        <input 
                          placeholder="Agency or Corp Name" 
+                         value={formData.companyName}
+                         onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
                          className="w-full bg-white border border-midnight/5 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-medium"
                        />
                        <input 
                          placeholder="Lead Recruiter Role" 
+                         value={formData.recruiterRole}
+                         onChange={(e) => setFormData(prev => ({ ...prev, recruiterRole: e.target.value }))}
                          className="w-full bg-white border border-midnight/5 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-medium"
                        />
                      </div>
@@ -246,7 +252,11 @@ export default function OnboardingWizard({ onComplete, role }: OnboardingWizardP
             {step < 3 ? (
               <button 
                 onClick={nextStep}
-                disabled={(step === 1 && !formData.resumeUploaded) || (step === 2 && !formData.targetRole)}
+                disabled={
+                  (step === 1 && role === 'hunter' && !formData.resumeUploaded) || 
+                  (step === 1 && role === 'recruiter' && (!formData.companyName || !formData.recruiterRole)) ||
+                  (step === 2 && !formData.targetRole)
+                }
                 className="group flex items-center gap-3 px-8 py-4 bg-midnight text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 disabled:opacity-50 disabled:bg-midnight"
               >
                 Continue Mission <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

@@ -1,14 +1,30 @@
 {
   "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "Company or Agency entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "domain": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended", "trial"] },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId"]
+    },
     "User": {
       "title": "User Profile",
-      "description": "User account and settings",
+      "description": "User account and settings with multi-tenant support",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["recruiter", "candidate"] },
+        "userLevel": { "type": "string", "enum": ["member", "admin", "superadmin"] },
+        "organizationId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -16,62 +32,59 @@
     },
     "Candidate": {
       "title": "Candidate",
-      "description": "Candidate in a recruiter's internal pool",
+      "description": "Candidate in an organization's internal pool",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "organizationId": { "type": "string" },
         "recruiterId": { "type": "string" },
         "name": { "type": "string" },
         "title": { "type": "string" },
-        "location": { "type": "string" },
         "score": { "type": "number" },
         "experience": { "type": "number" },
-        "degree": { "type": "string" },
-        "resumeSnippet": { "type": "string" },
+        "resumeUrl": { "type": "string" },
+        "resumeHash": { "type": "string" },
+        "isValidResume": { "type": "boolean" },
         "keywords": { "type": "array", "items": { "type": "string" } },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "recruiterId", "name", "title"]
+      "required": ["id", "organizationId", "name"]
     },
-    "Job": {
-      "title": "Job Posting",
-      "description": "Available job opportunities",
+    "AIInteraction": {
+      "title": "AI Interaction",
+      "description": "Record of AI usage and user feedback for learning",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "title": { "type": "string" },
-        "company": { "type": "string" },
-        "location": { "type": "string" },
-        "type": { "type": "string" },
-        "salary": { "type": "string" },
-        "description": { "type": "string" },
-        "sector": { "type": "string" },
-        "postedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "title", "company"]
+        "userId": { "type": "string" },
+        "originalPrompt": { "type": "string" },
+        "output": { "type": "string" },
+        "userEdit": { "type": "string" },
+        "userRating": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Organization details"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"
     },
-    "/users/{userId}/savedJobs/{jobId}": {
-      "schema": "Job",
-      "description": "Jobs saved by the user"
-    },
-    "/candidates/{candidateId}": {
+    "/organizations/{orgId}/candidates/{candidateId}": {
       "schema": "Candidate",
-      "description": "Internal talent pool candidates"
+      "description": "Organization-specific talent pool"
     },
-    "/jobs/{jobId}": {
+    "/organizations/{orgId}/jobs/{jobId}": {
       "schema": "Job",
-      "description": "Public job postings"
+      "description": "Organization job postings"
     },
-    "/recruiterJobs/{jobId}": {
-      "schema": "Job",
-      "description": "Private jobs created by recruiters"
+    "/interactions/{interactionId}": {
+      "schema": "AIInteraction",
+      "description": "AI learning data"
     }
   }
 }

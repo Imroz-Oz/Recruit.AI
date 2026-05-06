@@ -20,12 +20,23 @@ async function startServer() {
   
   const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
   const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
-  const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || `${normalizedAppUrl}/auth/callback`;
+  const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || (normalizedAppUrl ? `${normalizedAppUrl}/auth/callback` : `http://localhost:3000/auth/callback`);
+
+  // Expose configuration for the UI
+  app.get("/api/config/auth", (req, res) => {
+    res.json({ 
+      redirectUri: LINKEDIN_REDIRECT_URI,
+      clientId: LINKEDIN_CLIENT_ID ? "Configured" : "Missing",
+      appUrl: normalizedAppUrl || "Not Set"
+    });
+  });
 
   // Log the active redirect URI for debugging (only in development)
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[LinkedIn Auth] Active Redirect URI: ${LINKEDIN_REDIRECT_URI}`);
-    console.log(`[LinkedIn Auth] Configuration Guide: If you see a redirect_uri_mismatch error, ensure the above URL is added to your LinkedIn Developer Portal.`);
+    if (!LINKEDIN_CLIENT_ID || !LINKEDIN_CLIENT_SECRET) {
+      console.warn(`[LinkedIn Auth] Credentials missing. Set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET in your secrets.`);
+    }
   }
 
   // API Routes

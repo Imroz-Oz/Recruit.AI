@@ -52,6 +52,7 @@ export default function PersonalIQPage() {
       if (auth.currentUser) {
         const talent = {
           recruiterId: 'SYSTEM_AUTOGEN', // Mark as autogeneration from Career AI
+          organizationId: 'global',
           source: 'Career AI Ingress',
           name: auth.currentUser.displayName || 'Anonymous Candidate',
           title: data.humanReview.split('.')[0].slice(0, 50) || targetRole, // Dynamic title from analysis

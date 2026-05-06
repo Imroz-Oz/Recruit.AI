@@ -24,9 +24,13 @@ import {
   Brain
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, deleteDoc, doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { cn } from '@/src/lib/utils';
-import { generateCandidateIntelligence } from '@/src/services/aiService';
+import { 
+  validateResumeContent, 
+  detectDuplicateResume, 
+  generateCandidateIntelligence 
+} from '@/src/services/aiService';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 
 interface TalentArchivePageProps {
@@ -64,22 +68,37 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
       return;
     }
 
-    // Shared Global Talent Stream (No recruiterId filter for shared database)
-    const q = query(
-      collection(db, 'candidates'),
-      orderBy('createdAt', 'desc')
-    );
+    // Fetch user profile for orgId
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(fetched);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Real-time sync error:', error);
-      handleFirestoreError(error, OperationType.GET, 'candidates');
-    });
+    const fetchUserAndCandidates = async () => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      if (!isMounted) return;
+      const orgId = userDoc.data()?.organizationId || 'global';
 
-    return () => unsubscribe();
+      const q = query(
+        collection(db, 'candidates'),
+        where('organizationId', '==', orgId),
+        orderBy('createdAt', 'desc')
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCandidates(fetched);
+        setIsLoading(false);
+      }, (error) => {
+        console.error('Real-time sync error:', error);
+        handleFirestoreError(error, OperationType.GET, 'candidates');
+      });
+    };
+
+    fetchUserAndCandidates();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, [auth.currentUser]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
@@ -88,7 +107,30 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
     setIsSyncing(true);
     try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const orgId = userDoc.data()?.organizationId || 'global';
+
+      // Advanced Ingress Logic: Validate Content
+      const validation = await validateResumeContent(`${newCandidate.name} ${newCandidate.title} ${newCandidate.skills}`);
+      if (validation.documentType !== 'resume') {
+        const proceed = window.confirm(`Our AI suggests this might be a ${validation.documentType.toUpperCase()} (Reason: ${validation.reason}). Proceed anyway?`);
+        if (!proceed) {
+          setIsSyncing(false);
+          return;
+        }
+      }
+
+      // Check for duplicates in current org
+      const existingSummaries = candidates.map(c => `${c.name} - ${c.title}`);
+      const dubCheck = await detectDuplicateResume(`${newCandidate.name} ${newCandidate.title} ${newCandidate.skills}`, existingSummaries);
+      if (dubCheck.isDuplicate) {
+        alert("This candidate already exists in your library (AI Matched).");
+        setIsSyncing(false);
+        return;
+      }
+
       const talent = {
+        organizationId: orgId,
         recruiterId: auth.currentUser.uid,
         name: newCandidate.name,
         title: newCandidate.title,
@@ -98,6 +140,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
         score: 95,
         resumeSnippet: `Direct high-fidelity ingress. Verified professional index for ${newCandidate.name}.`,
         keywords: newCandidate.skills.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+        isValidResume: validation.isResume,
         createdAt: serverTimestamp()
       };
 
@@ -321,13 +364,16 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const filteredCandidates = candidates.filter(c => {
     const searchString = (c.name + ' ' + c.title + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
     
+    // Scoped filtering
     if (isBooleanSearchActive && booleanQuery) {
-      // Simulating boolean logic by checking if all terms exist (AND logic)
       const terms = booleanQuery.replace(/[()"]/g, '').split(/\s+AND\s+/).map(t => t.trim().toLowerCase());
-      return terms.every(term => searchString.includes(term));
+      if (!terms.every(term => searchString.includes(term))) return false;
     }
     
-    return searchString.includes(searchTerm.toLowerCase());
+    // Additional Real-life filters logic
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+    
+    return matchesSearch;
   });
 
   return (

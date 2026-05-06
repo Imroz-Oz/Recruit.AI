@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, Sparkles, ShieldCheck, Loader2, ArrowRight, Brain, Globe, Target, Zap, User, Rocket, Mail, Lock } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updateProfile,
+  sendPasswordResetEmail
+} from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
 import BrandLogo from '@/src/components/BrandLogo';
 
@@ -20,8 +27,14 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
+  const [authConfig, setAuthConfig] = useState<{ redirectUri: string, clientId: string, appUrl: string } | null>(null);
+
   useEffect(() => {
     localStorage.removeItem('intendedRole');
+    fetch('/api/config/auth')
+      .then(res => res.json())
+      .then(data => setAuthConfig(data))
+      .catch(err => console.error('Failed to fetch auth config', err));
   }, []);
 
   const handleRoleSelect = (role: 'recruiter' | 'hunter') => {
@@ -45,8 +58,40 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         onLogin(email);
       }
     } catch (err: any) {
+      console.warn("Auth Error Details:", err);
+      const errorCode = err.code || '';
+      const errorMessage = err.message || '';
+      
+      if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
+        setError('An account with this email already exists. Switching to Sign In.');
+        setAuthMode('email-signin');
+      } else if (errorCode === 'auth/invalid-credential' || errorMessage.includes('invalid-credential') || errorMessage.includes('wrong-password')) {
+        setError('Invalid credentials. Please verify your email and password.');
+      } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
+        setError('Security risk: Password must be at least 6 characters.');
+      } else if (errorCode === 'auth/user-not-found' || errorMessage.includes('user-not-found')) {
+        setError('No record of this email. Switching to Sign Up.');
+        setAuthMode('email-signup');
+      } else {
+        setError(errorMessage || 'Authentication sequence failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert('Password reset email sent. Please check your inbox.');
+    } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'Failed to send reset email');
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +182,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <nav className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center max-w-7xl mx-auto z-10 w-full">
         <div className="flex items-center gap-3">
           <BrandLogo className="w-10 h-10 text-midnight" />
-          <span className="text-xl font-serif font-bold tracking-tight italic">Recruit AI</span>
+          <span className="text-xl font-serif font-bold tracking-tight italic">Recruit IQ</span>
         </div>
         <div className="hidden md:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-midnight/60">
           <a href="#about" className="hover:text-midnight transition-colors">About Us</a>
@@ -194,56 +239,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <div className="absolute inset-0 bg-violet/10 blur-3xl rounded-full transform -rotate-12 translate-x-10 scale-110" />
             
             {/* Auth Card */}
-             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl shadow-violet/10 flex flex-col relative z-10 border border-midnight/5 min-h-[500px]">
+             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl shadow-violet/10 flex flex-col relative z-10 border border-midnight/5 min-h-[500px] justify-center">
               
               <AnimatePresence mode="wait">
-                {!intendedRole ? (
-                  <motion.div 
-                    key="role-select"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="flex-1 flex flex-col justify-center"
-                  >
-                    <div className="space-y-2 text-center mb-10">
-                      <h2 className="text-3xl font-serif font-bold text-midnight italic">
-                        Identify Mission
-                      </h2>
-                      <p className="text-midnight/40 text-[11px] font-bold uppercase tracking-widest">
-                        Select your operational state
-                      </p>
-                    </div>
-                    <div className="space-y-4">
-                      <button 
-                        onClick={() => handleRoleSelect('recruiter')}
-                        className="w-full p-6 text-left border-2 border-warm-gray rounded-3xl hover:border-violet/30 hover:bg-violet/5 transition-all group flex items-center justify-between"
-                      >
-                         <div>
-                           <div className="flex items-center gap-2 mb-1">
-                             <Target className="w-5 h-5 text-violet group-hover:scale-110 transition-transform" />
-                             <span className="font-bold text-sm text-midnight uppercase tracking-widest">Building a Team</span>
-                           </div>
-                           <p className="text-xs font-medium text-midnight/50 italic">Scout and secure elite talent</p>
-                         </div>
-                         <ArrowRight className="w-5 h-5 text-midnight/20 group-hover:text-violet group-hover:translate-x-1 transition-all" />
-                      </button>
-
-                      <button 
-                        onClick={() => handleRoleSelect('hunter')}
-                        className="w-full p-6 text-left border-2 border-warm-gray rounded-3xl hover:border-emerald-600/30 hover:bg-emerald-600/5 transition-all group flex items-center justify-between"
-                      >
-                         <div>
-                           <div className="flex items-center gap-2 mb-1">
-                             <Rocket className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
-                             <span className="font-bold text-sm text-midnight uppercase tracking-widest">Advancing Career</span>
-                           </div>
-                           <p className="text-xs font-medium text-midnight/50 italic">Access your intelligence orbit</p>
-                         </div>
-                         <ArrowRight className="w-5 h-5 text-midnight/20 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : (
                   <motion.div 
                     key="login"
                     initial={{ opacity: 0, x: -20 }}
@@ -251,24 +249,14 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                     exit={{ opacity: 0, x: 20 }}
                     className="flex-1 flex flex-col justify-center relative"
                   >
-                    <button 
-                      onClick={() => {
-                        if (authMode === 'social') setIntendedRole(null);
-                        else setAuthMode('social');
-                      }} 
-                      className="absolute -top-4 -left-4 p-2 text-midnight/30 hover:text-midnight hover:bg-neutral-100 rounded-full transition-all"
-                    >
-                      <ArrowRight className="w-5 h-5 rotate-180" />
-                    </button>
-
                     <div className="space-y-2 text-center mb-10">
                       <h2 className="text-3xl font-serif font-bold text-midnight italic">
                         {authMode === 'email-signup' ? 'Create Account' : 
                          authMode === 'email-signin' ? 'Welcome Back' :
-                         intendedRole === 'recruiter' ? 'Launch Portal' : 'Access Orbit'}
+                         'Authenticate'}
                       </h2>
                       <p className="text-midnight/40 text-[11px] font-bold uppercase tracking-widest">
-                        {authMode === 'social' ? 'Authenticate to access intelligence' : 'Secure Email Access'}
+                        {authMode === 'social' ? 'Join the Elite Intelligence Network' : 'Secure Enterprise Access'}
                       </p>
                     </div>
 
@@ -316,7 +304,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                             onClick={() => setAuthMode('email-signup')}
                             className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
                           >
-                            Sign Up for Free
+                            Sign Up with Email
                           </button>
                           
                           <button 
@@ -328,6 +316,13 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                         </>
                       ) : (
                         <form onSubmit={handleEmailAuth} className="space-y-4">
+                          <button 
+                            type="button"
+                            onClick={() => setAuthMode('social')}
+                            className="text-left mb-4 text-midnight/30 hover:text-midnight flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                          >
+                            <ArrowRight className="w-3 h-3 rotate-180" /> Back to Social Auth
+                          </button>
                           {authMode === 'email-signup' && (
                             <div className="space-y-2">
                               <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Full Name</label>
@@ -373,6 +368,16 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                             </div>
                           </div>
                           
+                          <div className="flex justify-end px-4">
+                            <button 
+                              type="button"
+                              onClick={handleForgotPassword}
+                              className="text-[10px] font-bold text-midnight/40 hover:text-midnight uppercase tracking-widest transition-colors"
+                            >
+                              Forgot Password?
+                            </button>
+                          </div>
+                          
                           <button 
                             type="submit"
                             disabled={isLoading}
@@ -391,7 +396,6 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                       </div>
                     </div>
                   </motion.div>
-                )}
               </AnimatePresence>
             </div>
           </motion.div>
@@ -403,10 +407,10 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <section id="about" className="py-24 bg-white border-t border-midnight/5 relative">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-violet">About Recruit AI</h2>
+            <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-violet">About Recruit IQ</h2>
             <h3 className="text-4xl md:text-5xl font-serif font-bold italic leading-tight">Elevating Human Potential through Machine Precision</h3>
             <p className="text-xl text-midnight/60 leading-relaxed font-medium">
-              We built Recruit AI to bridge the gap between extraordinary talent and visionary enterprises. 
+              We built Recruit IQ to bridge the gap between extraordinary talent and visionary enterprises. 
               Our platform doesn't just parse resumes; it understands professional DNA.
             </p>
           </div>
@@ -441,7 +445,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
       <footer className="bg-midnight border-t border-white/10 text-white/30 py-12 text-center text-xs font-medium">
         <div className="flex flex-col items-center gap-6">
-          <p>&copy; {new Date().getFullYear()} Recruit AI | Intelligence Systems. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Recruit IQ | Intelligence Systems. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -17,11 +17,12 @@ import {
   Wand2,
   Link2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Fingerprint
 } from 'lucide-react';
 import { auth, db } from '@/src/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { User as UserType } from '@/src/types';
+import { User as UserType, IndustryType, EngagementType, TaxType } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { generateProfessionalSummary } from '@/src/services/aiService';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
@@ -43,7 +44,10 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
     title: user.title || '',
     bio: user.bio || '',
     location: user.location || '',
-    skills: user.skills ? user.skills.join(', ') : ''
+    skills: user.skills ? user.skills.join(', ') : '',
+    industryTypes: user.industryTypes || [] as IndustryType[],
+    engagementTypes: user.engagementTypes || [] as EngagementType[],
+    taxTypes: user.taxTypes || [] as TaxType[]
   });
 
   useEffect(() => {
@@ -99,32 +103,37 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
   }, [user, onUpdateUser]);
 
   const handleSyncLinkedIn = async () => {
-    if (!auth.currentUser) return;
     setIsSyncingLinkedIn(true);
     try {
-      const url = await getLinkedInAuthUrl();
-      
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const authWindow = window.open(
-        url,
-        'LinkedIn Auth',
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
-
-      if (!authWindow) {
-        setIsSyncingLinkedIn(false);
-        alert('Popup blocked. Please enable popups to connect LinkedIn.');
+      // Try real sync first if configured
+      if (auth.currentUser && process.env.VITE_LINKEDIN_CLIENT_ID) {
+        const url = await getLinkedInAuthUrl();
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        const authWindow = window.open(url, 'LinkedIn Auth', `width=${width},height=${height},left=${left},top=${top}`);
+        if (!authWindow) alert('Popup blocked. Please enable popups.');
+      } else {
+        // AI Studio Demo Fallback
+        const confirmConnect = window.confirm("Connect your LinkedIn account to Recruit IQ? (Simulated for Demo)");
+        if (confirmConnect) {
+          const updatedData = { linkedInConnected: true };
+          if (auth.currentUser) {
+            await updateDoc(doc(db, 'users', auth.currentUser.uid), updatedData);
+          }
+          const newUser = { ...user, ...updatedData };
+          onUpdateUser(newUser);
+          setUser(newUser);
+          localStorage.setItem('linkedinProfile', JSON.stringify({ name: user.name, connectedAt: new Date().toISOString() }));
+          alert('LinkedIn successfully connected (Demo Mode).');
+        }
       }
-      
-      // We don't set loading to false here, the postMessage handler does that
     } catch (error) {
       console.error('LinkedIn sync failed:', error);
+      alert('Connection failed. Please check your credentials.');
+    } finally {
       setIsSyncingLinkedIn(false);
-      alert('Could not initiate LinkedIn connection. Check your server configuration.');
     }
   };
 
@@ -154,7 +163,10 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
         title: editForm.title,
         bio: editForm.bio,
         location: editForm.location,
-        skills: editForm.skills.split(',').map(s => s.trim()).filter(s => s !== '')
+        skills: editForm.skills.split(',').map(s => s.trim()).filter(s => s !== ''),
+        industryTypes: editForm.industryTypes,
+        engagementTypes: editForm.engagementTypes,
+        taxTypes: editForm.taxTypes
       };
       
       try {
@@ -257,7 +269,10 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
                     title: user.title || '',
                     bio: user.bio || '',
                     location: user.location || '',
-                    skills: user.skills ? user.skills.join(', ') : ''
+                    skills: user.skills ? user.skills.join(', ') : '',
+                    industryTypes: user.industryTypes || [],
+                    engagementTypes: user.engagementTypes || [],
+                    taxTypes: user.taxTypes || []
                   });
                 }}
                 className="text-[10px] font-bold text-midnight/30 uppercase tracking-widest hover:text-red-500 transition-colors flex items-center gap-2 mx-auto"
@@ -301,10 +316,67 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
                 {isSyncingLinkedIn ? <Loader2 className="w-4 h-4 animate-spin" /> : (user.linkedInConnected ? <Zap className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />)}
                 {isSyncingLinkedIn ? 'Synchronizing Intelligence...' : (user.linkedInConnected ? 'Re-Sync Deep Profile' : 'Connect LinkedIn Account')}
               </button>
+
+              {user.linkedInConnected && (
+                <div className="pt-2">
+                  <div className="p-4 bg-indigo-electric/5 border border-indigo-electric/10 rounded-2xl">
+                    <p className="text-[10px] font-bold text-indigo-electric uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <Sparkles className="w-3 h-3" /> Intelligence Available
+                    </p>
+                    <p className="text-[10px] text-midnight/40 mb-3 leading-relaxed">Your professional DNA is being analyzed in real-time.</p>
+                    <button 
+                      onClick={() => {
+                        // This assumes we have a way to navigate from here. 
+                        // In App.tsx, we pass current page state. 
+                        // But ProfilePage doesn't have setCurrentPage.
+                        // However, we can use a window.location change or just tell the user where to go.
+                        // Better: Add setCurrentPage to ProfilePage props if possible.
+                        window.location.hash = '#/linkedin-intelligence';
+                        window.dispatchEvent(new HashChangeEvent('hashchange'));
+                      }}
+                      className="w-full py-2 bg-indigo-electric text-white rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-colors"
+                    >
+                      View LinkedIn IQ Insights
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-midnight p-10 rounded-[3rem] text-white space-y-6 shadow-2xl shadow-midnight/30">
             <h4 className="text-sm font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
+              <Fingerprint className="w-4 h-4 text-indigo-400" /> Operational DNA
+            </h4>
+            <div className="space-y-4">
+              <div className="flex justify-between items-start text-xs">
+                <span className="text-white/60 uppercase tracking-widest text-[9px] mt-1">Industries</span>
+                <div className="text-right flex flex-col items-end gap-1">
+                  {user.industryTypes && user.industryTypes.length > 0 ? user.industryTypes.map((it, idx) => (
+                    <span key={idx} className="font-bold text-indigo-400 uppercase tracking-widest block">{it}</span>
+                  )) : <span className="font-bold text-indigo-400 uppercase tracking-widest">Default</span>}
+                </div>
+              </div>
+              <div className="flex justify-between items-start text-xs">
+                <span className="text-white/60 uppercase tracking-widest text-[9px] mt-1">Engagement</span>
+                <div className="text-right flex flex-col items-end gap-1">
+                  {user.engagementTypes && user.engagementTypes.length > 0 ? user.engagementTypes.map((et, idx) => (
+                    <span key={idx} className="font-bold text-emerald-400 uppercase tracking-widest block">{et.replace('-', ' ')}</span>
+                  )) : <span className="font-bold text-emerald-400 uppercase tracking-widest">Standard</span>}
+                </div>
+              </div>
+              <div className="flex justify-between items-start text-xs">
+                <span className="text-white/60 uppercase tracking-widest text-[9px] mt-1">Tax Models</span>
+                <div className="text-right flex flex-col items-end gap-1">
+                  {user.taxTypes && user.taxTypes.length > 0 ? user.taxTypes.map((tt, idx) => (
+                    <span key={idx} className="font-bold text-amber-400 uppercase tracking-widest block">{tt}</span>
+                  )) : <span className="font-bold text-amber-400 uppercase tracking-widest">Universal</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[3rem] text-white space-y-6 shadow-2xl shadow-midnight/30">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-midnight flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" /> Security Status
             </h4>
             <div className="space-y-4">
@@ -341,6 +413,103 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
                     </div>
                   </div>
                   
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-warm-gray flex items-center justify-center">
+                      <Fingerprint className="w-5 h-5 text-midnight/40" />
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <p className="text-[10px] font-bold text-midnight/20 uppercase tracking-widest">Calibration Parameters</p>
+                      {isEditing ? (
+                           <div className="grid grid-cols-1 gap-4">
+                             <div className="space-y-2">
+                               <p className="text-[9px] font-bold text-midnight/40 uppercase tracking-widest ml-1">Industries</p>
+                               <div className="flex flex-wrap gap-2">
+                                 {['it', 'engineering', 'healthcare', 'light-industrial', 'non-it', 'other'].map((it) => (
+                                   <button
+                                     key={it}
+                                     type="button"
+                                     onClick={() => {
+                                       const current = editForm.industryTypes;
+                                       const next = current.includes(it as IndustryType)
+                                         ? current.filter(i => i !== it)
+                                         : [...current, it as IndustryType];
+                                       setEditForm({ ...editForm, industryTypes: next });
+                                     }}
+                                     className={cn(
+                                       "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                                       editForm.industryTypes.includes(it as IndustryType)
+                                         ? "bg-midnight text-white border-midnight"
+                                         : "bg-warm-gray text-midnight/40 border-transparent hover:border-midnight/10"
+                                     )}
+                                   >
+                                     {it.replace('-', ' ')}
+                                   </button>
+                                 ))}
+                               </div>
+                             </div>
+
+                             <div className="space-y-2">
+                               <p className="text-[9px] font-bold text-midnight/40 uppercase tracking-widest ml-1">Engagements</p>
+                               <div className="flex flex-wrap gap-2">
+                                 {['contract', 'direct-hire', 'contract-to-hire'].map((et) => (
+                                   <button
+                                     key={et}
+                                     type="button"
+                                     onClick={() => {
+                                       const current = editForm.engagementTypes;
+                                       const next = current.includes(et as EngagementType)
+                                         ? current.filter(i => i !== et)
+                                         : [...current, et as EngagementType];
+                                       setEditForm({ ...editForm, engagementTypes: next });
+                                     }}
+                                     className={cn(
+                                       "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                                       editForm.engagementTypes.includes(et as EngagementType)
+                                         ? "bg-emerald-500 text-white border-emerald-500"
+                                         : "bg-warm-gray text-midnight/40 border-transparent hover:border-midnight/10"
+                                     )}
+                                   >
+                                     {et.replace('-', ' ')}
+                                   </button>
+                                 ))}
+                               </div>
+                             </div>
+
+                             <div className="space-y-2">
+                               <p className="text-[9px] font-bold text-midnight/40 uppercase tracking-widest ml-1">Tax Models</p>
+                               <div className="flex flex-wrap gap-2">
+                                 {['w2', 't4', 'c2c', '1099'].map((tt) => (
+                                   <button
+                                     key={tt}
+                                     type="button"
+                                     onClick={() => {
+                                       const current = editForm.taxTypes;
+                                       const next = current.includes(tt as TaxType)
+                                         ? current.filter(i => i !== tt)
+                                         : [...current, tt as TaxType];
+                                       setEditForm({ ...editForm, taxTypes: next });
+                                     }}
+                                     className={cn(
+                                       "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                                       editForm.taxTypes.includes(tt as TaxType)
+                                         ? "bg-amber-500 text-white border-amber-500"
+                                         : "bg-warm-gray text-midnight/40 border-transparent hover:border-midnight/10"
+                                     )}
+                                   >
+                                     {tt}
+                                   </button>
+                                 ))}
+                               </div>
+                             </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm font-bold text-midnight italic">
+                          {user.industryTypes?.map(it => it.toUpperCase()).join(', ') || 'N/A'} | {user.engagementTypes?.map(et => et.toUpperCase()).join(', ') || 'N/A'} | {user.taxTypes?.map(tt => tt.toUpperCase()).join(', ') || 'N/A'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-warm-gray flex items-center justify-center">
                       <MapPin className="w-5 h-5 text-midnight/40" />

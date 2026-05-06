@@ -1,5 +1,10 @@
 export type AppMode = 'recruiter' | 'hunter';
 export type SearchMode = 'candidate-for-job' | 'job-for-candidate';
+
+export type IndustryType = 'it' | 'non-it' | 'engineering' | 'light-industrial' | 'healthcare' | 'other';
+export type EngagementType = 'contract' | 'direct-hire' | 'contract-to-hire';
+export type TaxType = 'w2' | 't4' | 'c2c' | '1099';
+
 export type Page = 
   | 'dashboard' 
   | 'sourcing' 
@@ -13,6 +18,9 @@ export type Page =
   | 'job-feed'
   | 'resume-vault'
   | 'interview-prep'
+  | 'linkedin-intelligence'
+  | 'admin'
+  | 'superadmin'
   | 'privacy'
   | 'profile';
 
@@ -27,10 +35,16 @@ export interface User {
   selectedMode?: AppMode;
   linkedInConnected?: boolean;
   onboardingCompleted?: boolean;
+  organizationId?: string;
+  userLevel?: 'member' | 'admin' | 'superadmin';
+  userPlan?: 'free' | 'pro' | 'enterprise';
   title?: string;
   bio?: string;
   location?: string;
   skills?: string[];
+  industryTypes?: IndustryType[];
+  engagementTypes?: EngagementType[];
+  taxTypes?: TaxType[];
 }
 
 export type PipelineStage = 'sourcing' | 'submitted' | 'interviewing' | 'offer' | 'hired' | 'rejected';

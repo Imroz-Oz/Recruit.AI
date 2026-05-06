@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import CandidateSearch from '@/src/components/CandidateSearch';
 
-export default function SourcingPage({ isLinkedInConnected }: { isLinkedInConnected: boolean }) {
+export default function SourcingPage({ isLinkedInConnected, onConnectLinkedIn }: { isLinkedInConnected: boolean, onConnectLinkedIn: () => void }) {
   const [matches, setMatches] = useState<any[]>([]);
 
   return (
@@ -27,7 +27,11 @@ export default function SourcingPage({ isLinkedInConnected }: { isLinkedInConnec
       </header>
 
       <div className="grid grid-cols-1 gap-12">
-        <CandidateSearch onMatchesFound={setMatches} isLinkedInConnected={isLinkedInConnected} />
+        <CandidateSearch 
+          onMatchesFound={setMatches} 
+          isLinkedInConnected={isLinkedInConnected} 
+          onConnectLinkedIn={onConnectLinkedIn}
+        />
       </div>
       
       {/* Search Templates provided by User Experience */}

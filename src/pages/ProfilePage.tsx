@@ -116,22 +116,17 @@ export default function ProfilePage({ user: initialUser, onUpdateUser }: Profile
         if (!authWindow) alert('Popup blocked. Please enable popups.');
       } else {
         // AI Studio Demo Fallback
-        const confirmConnect = window.confirm("Connect your LinkedIn account to Recruit IQ? (Simulated for Demo)");
-        if (confirmConnect) {
-          const updatedData = { linkedInConnected: true };
-          if (auth.currentUser) {
-            await updateDoc(doc(db, 'users', auth.currentUser.uid), updatedData);
-          }
-          const newUser = { ...user, ...updatedData };
-          onUpdateUser(newUser);
-          setUser(newUser);
-          localStorage.setItem('linkedinProfile', JSON.stringify({ name: user.name, connectedAt: new Date().toISOString() }));
-          alert('LinkedIn successfully connected (Demo Mode).');
+        const updatedData = { linkedInConnected: true };
+        if (auth.currentUser) {
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), updatedData);
         }
+        const newUser = { ...user, ...updatedData };
+        onUpdateUser(newUser);
+        setUser(newUser);
+        localStorage.setItem('linkedinProfile', JSON.stringify({ name: user.name, connectedAt: new Date().toISOString() }));
       }
     } catch (error) {
       console.error('LinkedIn sync failed:', error);
-      alert('Connection failed. Please check your credentials.');
     } finally {
       setIsSyncingLinkedIn(false);
     }

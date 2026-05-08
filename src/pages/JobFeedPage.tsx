@@ -106,6 +106,38 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAiScanning, setIsAiScanning] = useState(false);
+  const [jobUrl, setJobUrl] = useState('');
+  const [portalAnalysis, setPortalAnalysis] = useState<any | null>(null);
+
+  const handlePortalMatch = async () => {
+    if (!jobUrl.trim() || !preSearchCandidate) {
+      if (!preSearchCandidate) alert("Please select a candidate from Library/Vault to perform Reverse Market Match.");
+      return;
+    }
+    setIsAiScanning(true);
+    try {
+      // 1. Fetch raw content from proxy
+      const response = await fetch(`/api/fetch-url?url=${encodeURIComponent(jobUrl)}`);
+      if (!response.ok) throw new Error('Failed to fetch URL content');
+      
+      const { content } = await response.json();
+      
+      // 2. Extract JD from HTML using Gemini
+      const { extractJDFromHtml, analyzeMatch } = await import('../services/geminiService');
+      const extractedJD = await extractJDFromHtml(content, jobUrl);
+      
+      // 3. Perform Match Analysis
+      // Since preSearchCandidate might be partial, we use its resumeSnippet or name/title
+      const candidateContext = preSearchCandidate.resumeSnippet || `${preSearchCandidate.name} - ${preSearchCandidate.title}`;
+      const data = await analyzeMatch(candidateContext, extractedJD);
+      setPortalAnalysis(data);
+    } catch (error) {
+      console.error("Portal Match Error:", error);
+      alert("Failed to analyze job URL. Please check the URL and try again.");
+    } finally {
+      setIsAiScanning(false);
+    }
+  };
 
   const performAiScan = async () => {
     setIsAiScanning(true);
@@ -457,6 +489,65 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
             </div>
             <div className="absolute bottom-0 right-0 w-32 h-32 bg-indigo-electric/20 rounded-full blur-[60px] translate-y-1/2 translate-x-1/2" />
           </div>
+
+          {preSearchCandidate && (
+             <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6 animate-in slide-in-from-right duration-500">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center font-serif font-bold text-lg italic">
+                    {preSearchCandidate.name[0]}
+                  </div>
+                  <div>
+                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-midnight/30">Target Candidate</h5>
+                    <p className="text-sm font-bold text-midnight tracking-tight">{preSearchCandidate.name}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-midnight/40 ml-1">Analyze External Job URL</label>
+                  <div className="relative group/url">
+                    <input 
+                      value={jobUrl}
+                      onChange={(e) => setJobUrl(e.target.value)}
+                      placeholder="Paste LinkedIn/Indeed URL..."
+                      className="w-full px-5 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-emerald-500/20 outline-none text-[10px] font-bold transition-all"
+                    />
+                    <button 
+                      onClick={handlePortalMatch}
+                      disabled={isAiScanning}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-midnight text-white rounded-lg flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-all disabled:opacity-50"
+                    >
+                      {isAiScanning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Zap className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {portalAnalysis && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-4 pt-4 border-t border-midnight/5"
+                    >
+                      <div className="flex items-center justify-between">
+                         <span className="text-[10px] font-bold uppercase tracking-widest text-midnight/40">Match Score</span>
+                         <span className={cn(
+                           "text-xl font-serif font-bold italic",
+                           portalAnalysis.score > 80 ? "text-emerald-500" : "text-amber-500"
+                         )}>{portalAnalysis.score}%</span>
+                      </div>
+                      <div className="space-y-2">
+                        {portalAnalysis.recommendations.slice(0, 2).map((rec: string, i: number) => (
+                          <div key={i} className="flex gap-2 p-3 bg-warm-gray/30 rounded-xl">
+                            <Sparkles className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                            <p className="text-[9px] font-medium leading-relaxed text-midnight/60">{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+             </div>
+          )}
 
           <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6">
             <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-midnight/20">Saved Searches</h4>

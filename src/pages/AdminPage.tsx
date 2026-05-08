@@ -78,7 +78,7 @@ export default function AdminPage() {
     };
   }, [auth.currentUser]);
 
-  const handleUpdateRole = async (userId: string, newLevel: 'member' | 'admin') => {
+  const handleUpdateRole = async (userId: string, newLevel: 'member' | 'admin' | 'admin_head') => {
     try {
       await updateDoc(doc(db, 'users', userId), {
         userLevel: newLevel
@@ -90,7 +90,6 @@ export default function AdminPage() {
 
   const handleRemoveMember = async (userId: string) => {
     if (userId === auth.currentUser?.uid) return;
-    if (!window.confirm("Remove this user from your organization?")) return;
     
     try {
       await updateDoc(doc(db, 'users', userId), {
@@ -109,7 +108,7 @@ export default function AdminPage() {
     // Check Plan Limits
     const limit = orgData.plan === 'enterprise' ? Infinity : orgData.plan === 'pro' ? 5 : 2;
     if (teamMembers.length >= limit) {
-      alert(`Limit Reached: Your current ${orgData.plan} plan allows up to ${limit} seats. Please contact support to upgrade.`);
+      // Limit Reached
       return;
     }
 
@@ -126,7 +125,6 @@ export default function AdminPage() {
           organizationId: orgData.id,
           userLevel: newInvite.role
         });
-        alert(`${newInvite.email} has been added to your organization.`);
       } else {
         // For @recruit.ai emails, we simulate auto-creation
         if (newInvite.email.endsWith('@recruit.ai')) {
@@ -138,9 +136,8 @@ export default function AdminPage() {
             displayName: newInvite.email.split('@')[0],
             createdAt: serverTimestamp()
           });
-          alert(`New account provisioned: ${newInvite.email}`);
         } else {
-          alert(`Could not find user with email: ${newInvite.email}. Note: Only existing users or @recruit.ai emails can be auto-provisioned.`);
+          // Could not find user
         }
       }
 
@@ -206,6 +203,33 @@ export default function AdminPage() {
       </div>
 
       {/* Team Member Table */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-midnight">Global Productivity Matrix</h3>
+          <div className="flex gap-2">
+            <div className="px-4 py-2 bg-white rounded-xl border border-midnight/5 text-[10px] font-bold uppercase tracking-widest text-midnight/40">Efficiency: 94%</div>
+            <div className="px-4 py-2 bg-white rounded-xl border border-midnight/5 text-[10px] font-bold uppercase tracking-widest text-midnight/40">Uptime: 99.9%</div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[
+            { label: 'Avg Time to Hire', value: '18 Days', trend: '-2d', color: 'text-indigo-600' },
+            { label: 'Offer Acceptance', value: '82%', trend: '+4%', color: 'text-emerald-600' },
+            { label: 'Sourcing Velocity', value: '42/wk', trend: '+12%', color: 'text-violet' },
+            { label: 'Candidate IQ', value: '94.2', trend: '+1.2', color: 'text-coral' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-6 rounded-3xl border border-midnight/5 shadow-sm">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 mb-2">{stat.label}</p>
+              <div className="flex items-end justify-between">
+                <span className="text-2xl font-serif font-bold italic">{stat.value}</span>
+                <span className="text-[10px] font-bold text-emerald-500">{stat.trend}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-white rounded-[3.5rem] border border-midnight/5 shadow-sm overflow-hidden flex flex-col">
         <div className="p-8 border-b border-midnight/5 bg-warm-gray/10 flex flex-col md:flex-row justify-between items-center gap-6">
            <div className="relative flex-1 max-w-xl">
@@ -358,7 +382,6 @@ export default function AdminPage() {
                     >
                       <Users className="w-6 h-6 text-indigo-electric mb-3" />
                       <p className="text-sm font-bold text-midnight">Team Member</p>
-                      <p className="text-[8px] font-bold text-midnight/30 uppercase mt-1">Full sourcing capabilities</p>
                     </button>
                     <button 
                       type="button"
@@ -367,9 +390,19 @@ export default function AdminPage() {
                         newInvite.role === 'admin' ? 'border-amber-500 bg-amber-500/5' : 'border-midnight/5 hover:border-midnight/10'
                       }`}
                     >
-                      <ShieldCheck className="w-6 h-6 text-amber-500 mb-3" />
-                      <p className="text-sm font-bold text-midnight">Org Admin</p>
-                      <p className="text-[8px] font-bold text-midnight/30 uppercase mt-1">Manage team and organization</p>
+                      <Shield className="w-6 h-6 text-amber-500 mb-3" />
+                      <p className="text-sm font-bold text-midnight">Manager</p>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setNewInvite({...newInvite, role: 'admin_head'})}
+                      className={`p-6 rounded-[2rem] border-2 transition-all text-left col-span-2 ${
+                        newInvite.role === 'admin_head' ? 'border-coral bg-coral/5' : 'border-midnight/5 hover:border-midnight/10'
+                      }`}
+                    >
+                      <ShieldCheck className="w-6 h-6 text-coral mb-3" />
+                      <p className="text-sm font-bold text-midnight">Admin Head</p>
+                      <p className="text-[8px] font-bold text-midnight/30 uppercase mt-1">Full access + productivity analytics</p>
                     </button>
                   </div>
                 </div>

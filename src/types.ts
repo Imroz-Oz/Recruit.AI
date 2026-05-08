@@ -1,9 +1,11 @@
-export type AppMode = 'recruiter' | 'hunter';
+export type AppMode = 'recruiter' | 'hunter' | 'enterprise';
 export type SearchMode = 'candidate-for-job' | 'job-for-candidate';
 
 export type IndustryType = 'it' | 'non-it' | 'engineering' | 'light-industrial' | 'healthcare' | 'other';
 export type EngagementType = 'contract' | 'direct-hire' | 'contract-to-hire';
 export type TaxType = 'w2' | 't4' | 'c2c' | '1099';
+
+export type UserLevel = 'member' | 'admin' | 'admin_head' | 'superadmin' | 'universal';
 
 export type Page = 
   | 'dashboard' 
@@ -22,10 +24,27 @@ export type Page =
   | 'admin'
   | 'superadmin'
   | 'privacy'
-  | 'profile';
+  | 'profile'
+  | 'org-management';
+
+export interface Organization {
+  id: string;
+  name: string;
+  domain: string;
+  employeeCount: number;
+  adminManagerCount: number;
+  adminHeadEmail: string;
+  companyEmail?: string;
+  country: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  createdBy: string;
+  systemEmail: string; // OrganisationNAME@Recruit.AI
+}
 
 export interface User {
   id: string;
+  uid: string;
   email: string;
   name: string;
   isLoggedIn: boolean;
@@ -36,7 +55,7 @@ export interface User {
   linkedInConnected?: boolean;
   onboardingCompleted?: boolean;
   organizationId?: string;
-  userLevel?: 'member' | 'admin' | 'superadmin';
+  userLevel?: UserLevel;
   userPlan?: 'free' | 'pro' | 'enterprise';
   title?: string;
   bio?: string;
@@ -45,6 +64,7 @@ export interface User {
   industryTypes?: IndustryType[];
   engagementTypes?: EngagementType[];
   taxTypes?: TaxType[];
+  systemEmail?: string; // EmployeeNAME.OrganisationNAME@Recruit.AI
 }
 
 export type PipelineStage = 'sourcing' | 'submitted' | 'interviewing' | 'offer' | 'hired' | 'rejected';

@@ -110,8 +110,11 @@ export const generateBooleanFromJD = async (jd: string, previousInteractions: an
       ${learningContext}
 
       STRICT RULES for Boolean String Construction:
-      1. Cluseter skills, tools, and domain keywords.
-      2. Focus on Boolean logic for LinkedIn/Search engines.
+      1. Use precise Boolean operators: AND, OR, NOT.
+      2. Cluster related skills using single parentheses: (SkillA OR SkillB OR SkillC).
+      3. AVOID redundant nested brackets. Never output ((...)).
+      4. Example Format: "Primary Role" AND (Skill1 OR Skill2) AND (Tool1 OR Tool2)
+      5. Do not include extra brackets at the start or end of the string unless necessary for logic.
       
       Extract specifically:
       - A primary Job Title.
@@ -187,6 +190,25 @@ export interface MultiResumeAnalysis {
   }[];
   generalObservations: string;
 }
+
+export const extractJDFromHtml = async (html: string, url: string): Promise<string> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `
+      As a specialist in talent acquisition systems, extract the core Job Description (JD) from this raw HTML content.
+      Ignore navigation, footers, ads, and unrelated sidebar content. 
+      Focus on: Job Title, Responsibilities, Requirements, and Company context.
+      
+      URL Source: ${url}
+      HTML Content: ${html.slice(0, 10000)}
+
+      Return the extracted JD text only.
+    `
+  });
+
+  return response.text || "Failed to extract job description.";
+};
 
 export const analyzeMatch = async (resume: string, jd: string): Promise<AnalysisResponse> => {
   const ai = getAI();

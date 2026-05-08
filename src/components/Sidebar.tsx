@@ -33,10 +33,12 @@ interface SidebarProps {
   onConnectLinkedIn: () => void;
   onLogout: () => void;
   appMode: AppMode;
-  userLevel?: 'member' | 'admin' | 'superadmin';
+  userLevel?: 'member' | 'admin' | 'admin_head' | 'superadmin' | 'universal';
   onSwitchMode: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onBack?: () => void;
+  canGoBack?: boolean;
 }
 
 export default function Sidebar({ 
@@ -49,7 +51,9 @@ export default function Sidebar({
   userLevel,
   onSwitchMode,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  onBack,
+  canGoBack
 }: SidebarProps) {
   const handleLogout = async () => {
     try {
@@ -59,15 +63,25 @@ export default function Sidebar({
     }
   };
 
+  // Base Recruiter Items
   const recruiterItems = [
     { id: 'dashboard' as Page, label: 'Dash', icon: LayoutDashboard },
+    { id: 'intelligence' as Page, label: 'AI Intel', icon: Zap },
+    { id: 'assistant' as Page, label: 'Assistant', icon: Bot },
+  ];
+
+  // Enterprise / Admin Manager Items
+  const staffingItems = [
     { id: 'sourcing' as Page, label: 'Find Talent', icon: Search },
     { id: 'resume-vault' as Page, label: 'Vault', icon: ShieldCheck },
     { id: 'postings' as Page, label: 'Jobs', icon: Briefcase },
     { id: 'candidates' as Page, label: 'Talent Pool', icon: Users },
-    { id: 'intelligence' as Page, label: 'AI Intel', icon: Zap },
-    { id: 'assistant' as Page, label: 'Assistant', icon: Bot },
+  ];
+
+  // Admin Head Items
+  const analyticsItems = [
     { id: 'history' as Page, label: 'Stats', icon: BarChart3 },
+    { id: 'admin' as Page, label: 'Team', icon: ShieldCheck },
   ];
 
   const hunterItems = [
@@ -81,17 +95,30 @@ export default function Sidebar({
     { id: 'history' as Page, label: 'Stats', icon: BarChart3 },
   ];
 
-  const adminItem = { id: 'admin' as Page, label: 'Team Settings', icon: ShieldCheck };
   const superAdminItem = { id: 'superadmin' as Page, label: 'God Mode', icon: ShieldCheck };
 
-  const menuItems = appMode === 'recruiter' ? recruiterItems : hunterItems;
-  const finalMenuItems = [...menuItems];
+  let menuItems: any[] = [];
   
-  if (userLevel === 'superadmin') {
-    finalMenuItems.push(superAdminItem);
-  } else if (userLevel === 'admin') {
-    finalMenuItems.push(adminItem);
+  if (appMode === 'hunter') {
+    menuItems = hunterItems;
+  } else {
+    // Recruiter Mode logic
+    menuItems = [...recruiterItems];
+    
+    if (userLevel === 'admin' || userLevel === 'admin_head' || userLevel === 'superadmin' || userLevel === 'universal') {
+      menuItems.push(...staffingItems);
+    }
+    
+    if (userLevel === 'admin_head' || userLevel === 'superadmin' || userLevel === 'universal') {
+      menuItems.push(...analyticsItems);
+    }
   }
+
+  if (userLevel === 'superadmin' || userLevel === 'universal') {
+    menuItems.push(superAdminItem);
+  }
+
+  const finalMenuItems = menuItems;
 
   return (
     <div className={cn(
@@ -130,6 +157,19 @@ export default function Sidebar({
         </div>
 
         <nav className="space-y-2">
+          {canGoBack && onBack && (
+            <button
+              onClick={onBack}
+              className={cn(
+                "w-full flex items-center px-4 py-3 rounded-lg transition-all duration-200 group text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 border border-dashed border-white/10 mb-6",
+                isCollapsed ? "justify-center px-0" : "gap-3"
+              )}
+            >
+              <History className="w-5 h-5 shrink-0" />
+              {!isCollapsed && <span className="animate-in fade-in slide-in-from-left-2 duration-300">Previous Page</span>}
+            </button>
+          )}
+
           {finalMenuItems.map((item) => (
             <button
               key={item.id}

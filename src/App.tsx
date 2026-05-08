@@ -29,7 +29,7 @@ import SuperAdminPage from './pages/SuperAdminPage';
 import { Page, User, AppMode, SearchMode, IndustryType, EngagementType, TaxType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { Bot, Loader2 } from 'lucide-react';
+import { Bot, Loader2, ArrowLeft } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
@@ -39,6 +39,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [pageHistory, setPageHistory] = useState<Page[]>([]);
   const [isLinkedInConnected, setIsLinkedInConnected] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [selectedCandidateForMarket, setSelectedCandidateForMarket] = useState<any | null>(null);
@@ -114,6 +115,7 @@ export default function App() {
             const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
             userData = {
               id: firebaseUser.uid,
+              uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               name: profile.name || profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
               isLoggedIn: true,
@@ -129,7 +131,7 @@ export default function App() {
               taxTypes: profile.taxTypes,
               onboardingCompleted: profile.onboardingCompleted,
               organizationId: profile.organizationId,
-              userLevel: profile.userLevel || (firebaseUser.email === 'king007.2311@gmail.com' ? 'superadmin' : 'member')
+              userLevel: profile.userLevel || (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member')
             };
           } else {
             // Initialize user in Firestore
@@ -144,13 +146,15 @@ export default function App() {
 
             userData = {
               id: firebaseUser.uid,
+              uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
               isLoggedIn: true,
               role: role,
               isCompanyUser: role === 'corp',
               selectedMode: selectedMode,
-              onboardingCompleted: false
+              onboardingCompleted: false,
+              userLevel: (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member')
             };
 
             try {
@@ -160,6 +164,7 @@ export default function App() {
                 role: role,
                 selectedMode: selectedMode || null,
                 onboardingCompleted: false,
+                userLevel: userData.userLevel,
                 createdAt: new Date().toISOString()
               });
               localStorage.removeItem('intendedRole');
@@ -197,6 +202,7 @@ export default function App() {
     
     const userData: User = {
       id: linkedinProfile?.id || `demo-${Date.now()}`,
+      uid: linkedinProfile?.id || `demo-${Date.now()}`,
       email: email,
       name: linkedinProfile?.name || email.split('@')[0] || 'User',
       isLoggedIn: true,
@@ -237,7 +243,7 @@ export default function App() {
 
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      setCurrentPage('dashboard');
+      navigateTo('dashboard');
       
       // Persist selection
       if (auth.currentUser) {
@@ -267,9 +273,9 @@ export default function App() {
   const handleSelectSearchMode = (mode: SearchMode) => {
     setSearchMode(mode);
     if (mode === 'candidate-for-job') {
-      setCurrentPage('sourcing');
+      navigateTo('sourcing');
     } else {
-      setCurrentPage('intelligence');
+      navigateTo('intelligence');
     }
   };
 
@@ -281,8 +287,24 @@ export default function App() {
       localStorage.removeItem('linkedinProfile');
       setUser(null);
       setCurrentPage('dashboard');
+      setPageHistory([]);
     } catch (err) {
       console.error("Logout error:", err);
+    }
+  };
+
+  const navigateTo = (page: Page) => {
+    if (page !== currentPage) {
+      setPageHistory(prev => [...prev, currentPage]);
+      setCurrentPage(page);
+    }
+  };
+
+  const handleBack = () => {
+    if (pageHistory.length > 0) {
+      const prevPage = pageHistory[pageHistory.length - 1];
+      setPageHistory(prev => prev.slice(0, -1));
+      setCurrentPage(prevPage);
     }
   };
 
@@ -291,10 +313,9 @@ export default function App() {
     
     if (newState) {
       // Simulate LinkedIn Auth Process
-      const confirmConnect = window.confirm("Connect your LinkedIn account to Recruit IQ? This will allow us to analyze your profile and provide strategic insights.");
-      if (!confirmConnect) return;
-
       setIsLinkedInConnected(true);
+      localStorage.setItem('isLinkedInConnected', 'true');
+      
       if (user) {
         const updatedUser = { ...user, linkedInConnected: true };
         setUser(updatedUser);
@@ -303,7 +324,7 @@ export default function App() {
           try {
             await setDoc(doc(db, 'users', auth.currentUser.uid), { linkedInConnected: true }, { merge: true });
           } catch (err) {
-            handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+            console.error('LinkedIn state update error:', err);
           }
         }
       }
@@ -314,10 +335,9 @@ export default function App() {
         connections: '500+'
       }));
     } else {
-      const confirmDisconnect = window.confirm("Disconnect your LinkedIn account? You will lose access to LinkedIn Intelligence features.");
-      if (!confirmDisconnect) return;
-
       setIsLinkedInConnected(false);
+      localStorage.setItem('isLinkedInConnected', 'false');
+      
       if (user) {
         const updatedUser = { ...user, linkedInConnected: false };
         setUser(updatedUser);
@@ -326,7 +346,7 @@ export default function App() {
           try {
             await setDoc(doc(db, 'users', auth.currentUser.uid), { linkedInConnected: false }, { merge: true });
           } catch (err) {
-            handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+            console.error('LinkedIn state update error:', err);
           }
         }
       }
@@ -336,7 +356,7 @@ export default function App() {
 
   const handleReverseMarket = (candidate: any) => {
     setSelectedCandidateForMarket(candidate);
-    setCurrentPage('job-feed');
+    navigateTo('job-feed');
   };
 
   if (loading) {
@@ -349,7 +369,7 @@ export default function App() {
 
   // Handle public pages like Privacy Policy without needing a user
   if (currentPage === 'privacy') {
-    return <PrivacyPolicyPage onBack={user ? () => setCurrentPage('dashboard') : undefined} />;
+    return <PrivacyPolicyPage onBack={user ? () => handleBack() : undefined} />;
   }
 
   if (!user) {
@@ -370,7 +390,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={setCurrentPage} appMode={user.selectedMode || 'recruiter'} />;
+        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={navigateTo} appMode={user.selectedMode || 'recruiter'} />;
       case 'sourcing':
         return <SourcingPage isLinkedInConnected={isLinkedInConnected} onConnectLinkedIn={handleConnectLinkedIn} />;
       case 'candidates':
@@ -392,7 +412,7 @@ export default function App() {
       case 'interview-prep':
         return <InterviewPrepPage />;
       case 'privacy':
-        return <PrivacyPolicyPage onBack={user ? () => setCurrentPage('dashboard') : undefined} />;
+        return <PrivacyPolicyPage onBack={user ? () => handleBack() : undefined} />;
       case 'history':
         return <AnalyticsPage />;
       case 'assistant':
@@ -406,7 +426,7 @@ export default function App() {
       case 'profile':
         return <ProfilePage user={user} onUpdateUser={(updated) => setUser(updated)} />;
       default:
-        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={setCurrentPage} appMode={user.selectedMode || 'recruiter'} />;
+        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={navigateTo} appMode={user.selectedMode || 'recruiter'} />;
     }
   };
 
@@ -417,13 +437,18 @@ export default function App() {
     )}>
       <Sidebar 
         currentPage={currentPage} 
-        setCurrentPage={setCurrentPage} 
+        setCurrentPage={navigateTo} 
         isLinkedInConnected={isLinkedInConnected}
         onConnectLinkedIn={handleConnectLinkedIn}
         onLogout={handleLogout}
         appMode={user.selectedMode}
         userLevel={user.userLevel}
-        onSwitchMode={() => setUser({ ...user, selectedMode: undefined })}
+        onBack={handleBack}
+        canGoBack={pageHistory.length > 0}
+        onSwitchMode={() => {
+          setPageHistory(prev => [...prev, currentPage]);
+          setUser({ ...user, selectedMode: undefined });
+        }}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
@@ -432,6 +457,27 @@ export default function App() {
         "flex-1 p-12 overflow-y-auto relative transition-all duration-500",
         sidebarCollapsed ? "ml-20" : "ml-64"
       )}>
+        {/* Global Navigation Bar */}
+        <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {pageHistory.length > 0 && (
+              <button 
+                onClick={handleBack}
+                className="group flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-midnight/5 shadow-sm hover:shadow-md hover:border-midnight/10 transition-all text-midnight/60 hover:text-midnight"
+              >
+                <div className="w-6 h-6 rounded-lg bg-warm-gray flex items-center justify-center group-hover:bg-midnight group-hover:text-white transition-colors">
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Back</span>
+              </button>
+            )}
+            <div className="h-4 w-[1px] bg-midnight/10 mx-2" />
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-midnight/40">
+              {currentPage.replace('-', ' ')}
+            </h2>
+          </div>
+        </div>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}
@@ -454,7 +500,7 @@ export default function App() {
 
         {/* Floating Copilot Trigger */}
         <button 
-          onClick={() => setCurrentPage('assistant')}
+          onClick={() => navigateTo('assistant')}
           className="fixed bottom-10 right-10 w-16 h-16 bg-indigo-electric text-white rounded-3xl shadow-2xl shadow-indigo-electric/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group overflow-hidden border border-white/20"
         >
           <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />

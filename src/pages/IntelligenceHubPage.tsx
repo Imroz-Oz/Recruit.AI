@@ -19,7 +19,7 @@ import {
   TrendingUp,
   Brain
 } from 'lucide-react';
-import { analyzeMatch, analyzeMultipleResumes, AnalysisResponse, MultiResumeAnalysis } from '@/src/services/geminiService';
+import { analyzeMatch, analyzeMultipleResumes, AnalysisResponse, MultiResumeAnalysis, extractJDFromHtml } from '@/src/services/geminiService';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
@@ -120,12 +120,21 @@ export default function IntelligenceHubPage() {
     if (!resume.trim() || !jobUrl.trim()) return;
     setIsAnalyzing(true);
     try {
-      // Mocking a crawler response that leads to a match analysis
-      const mockJD = `Simulated extraction from ${jobUrl}: Senior Role requiring core competencies in ${resume.slice(0, 50)}...`;
-      const data = await analyzeMatch(resume, mockJD);
+      // 1. Fetch raw content from proxy
+      const response = await fetch(`/api/fetch-url?url=${encodeURIComponent(jobUrl)}`);
+      if (!response.ok) throw new Error('Failed to fetch URL content');
+      
+      const { content } = await response.json();
+      
+      // 2. Extract JD from HTML using Gemini
+      const extractedJD = await extractJDFromHtml(content, jobUrl);
+      
+      // 3. Perform Match Analysis
+      const data = await analyzeMatch(resume, extractedJD);
       setSingleAnalysis(data);
     } catch (error) {
-      console.error(error);
+      console.error("Portal Match Error:", error);
+      // Fallback or error state
     } finally {
       setIsAnalyzing(false);
     }

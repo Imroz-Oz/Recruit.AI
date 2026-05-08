@@ -112,19 +112,12 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
       // Advanced Ingress Logic: Validate Content
       const validation = await validateResumeContent(`${newCandidate.name} ${newCandidate.title} ${newCandidate.skills}`);
-      if (validation.documentType !== 'resume') {
-        const proceed = window.confirm(`Our AI suggests this might be a ${validation.documentType.toUpperCase()} (Reason: ${validation.reason}). Proceed anyway?`);
-        if (!proceed) {
-          setIsSyncing(false);
-          return;
-        }
-      }
+      // Auto-proceed without confirming if it's not a resume type (simplifies flow)
 
       // Check for duplicates in current org
       const existingSummaries = candidates.map(c => `${c.name} - ${c.title}`);
       const dubCheck = await detectDuplicateResume(`${newCandidate.name} ${newCandidate.title} ${newCandidate.skills}`, existingSummaries);
       if (dubCheck.isDuplicate) {
-        alert("This candidate already exists in your library (AI Matched).");
         setIsSyncing(false);
         return;
       }

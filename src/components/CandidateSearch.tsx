@@ -38,6 +38,7 @@ import {
   BooleanResponse, 
   ResumeMatchResult 
 } from '@/src/services/geminiService';
+import { IndustryType } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, deleteDoc, doc, getDoc, limit } from 'firebase/firestore';
@@ -66,7 +67,8 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
   
   // Advanced Filters
   const [title, setTitle] = useState('');
-  const [expLevel, setExpLevel] = useState<'entry' | 'mid' | 'senior' | 'any'>('any');
+  const [minExp, setMinExp] = useState<number>(0);
+  const [maxExp, setMaxExp] = useState<number>(20);
   const [skillQuery, setSkillQuery] = useState('');
   const [degree, setDegree] = useState('Any Degree');
   const [industry, setIndustry] = useState('');
@@ -76,6 +78,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
   const [certifications, setCertifications] = useState('');
   const [visaStatus, setVisaStatus] = useState('any');
   const [remotePreference, setRemotePreference] = useState('any');
+  const [targetIndustry, setTargetIndustry] = useState<IndustryType | 'all'>('all');
 
   // Resume Matching State
   const [resumeMatchText, setResumeMatchText] = useState('');
@@ -102,7 +105,14 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
       const vectorString = vectors.length > 0 ? ` AND ${vectors.join(' AND ')}` : '';
       
       // Update the full query
-      const finalQuery = `("${result.extractedTitle}") AND (${keywordsBlock}${vectorString})`;
+      let finalQuery = `("${result.extractedTitle}") AND ${keywordsBlock}`;
+      if (vectorString) {
+        finalQuery += vectorString;
+      }
+      
+      // Basic cleanup of redundant parentheses
+      finalQuery = finalQuery.replace(/\(\(([^()]+)\)\)/g, '($1)');
+      
       setEditableQuery(finalQuery);
     }
   }, [result, skillQuery, certifications, searchMode]);
@@ -350,13 +360,15 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
             timestamp: serverTimestamp()
           });
         }
-        const found = talentPool.filter(c => {
+
+        // --- ENHANCED MATCHING LOGIC ---
+        const scoredCandidates = talentPool.map(c => {
           const haystack = (c.name + ' ' + c.title + ' ' + c.resumeSnippet + ' ' + (c.keywords?.join(' ') || '')).toLowerCase();
           
-          // 1. Check Title Matches (Direct & Suggested)
-          const titleMatch = data.suggestedTitles.some(t => haystack.includes(t.toLowerCase()));
+          // 1. Title Match (0-30 points)
+          const titleScore = data.suggestedTitles.some(t => haystack.includes(t.toLowerCase())) ? 30 : 0;
           
-          // 2. Check Query Keywords (Deconstructed for fuzzy matching)
+          // 2. Keyword Match (0-40 points)
           const queryTerms = data.query
             .replace(/[()"]/g, '')
             .split(/\s+OR\s+|\s+AND\s+/)
@@ -364,19 +376,24 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
             .filter(k => k.length > 2);
             
           const keywordMatchCount = queryTerms.filter(k => haystack.includes(k)).length;
-          const keywordMatch = queryTerms.length > 0 ? (keywordMatchCount / queryTerms.length) >= 0.2 : true; // Match at least 20%
+          const keywordScore = queryTerms.length > 0 ? (keywordMatchCount / queryTerms.length) * 40 : 0;
+
+          // 3. Industry/Exp Match (0-30 points - Simulated)
+          const industryMatch = (targetIndustry === 'all' || (c.industry || '').toLowerCase() === targetIndustry.toLowerCase());
+          const expMatch = (c.experience >= minExp && c.experience <= maxExp);
+          const metaScore = (industryMatch ? 15 : 0) + (expMatch ? 15 : 0);
           
-          return titleMatch || keywordMatch;
+          const totalScore = Math.round(titleScore + keywordScore + metaScore);
+          return { ...c, score: Math.min(totalScore, 100) };
         });
 
-        // 3. Automated LinkedIn Profile Ingress (Simulated)
-        let linkedinLeads: any[] = [];
-        const queryTerms = data.query
-          .replace(/[()"]/g, '')
-          .split(/\s+OR\s+|\s+AND\s+/)
-          .map(k => k.trim().toLowerCase())
-          .filter(k => k.length > 2);
+        // Only show results with matching > 50%
+        const finalMatches = scoredCandidates
+          .filter(c => c.score >= 50)
+          .sort((a, b) => b.score - a.score);
 
+        // Automated LinkedIn Leads (Simulated)
+        let linkedinLeads: any[] = [];
         if (isLinkedInConnected) {
           linkedinLeads = [
             {
@@ -388,25 +405,19 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
               isInternal: false,
               experience: 8,
               isLinkedInLead: true,
-              resumeSnippet: 'Top match from your LinkedIn 1st degree connections. Expert in matching technologies identified from your JD input.',
-              highlightedMatches: queryTerms.slice(0, 3),
-              keywords: queryTerms,
+              resumeSnippet: 'Top match from your LinkedIn 1st degree connections.',
+              highlightedMatches: data.extractedKeywords.split(',').slice(0, 3),
+              keywords: data.extractedKeywords.split(','),
               createdAt: serverTimestamp()
             }
           ];
         }
 
-        const consolidated = [...linkedinLeads, ...found.map(m => ({ ...m, score: Math.min(m.score + 5, 100) }))];
+        const consolidated = [...linkedinLeads, ...finalMatches];
         
-        // Fallback: If no results found with strict logic, show best estimates
-        const resultsToReturn = consolidated.length > 0 ? consolidated : talentPool.slice(0, 5).map(c => ({
-          ...c,
-          score: Math.floor(Math.random() * 20) + 70, // Simulated relevance for fallback
-          isInternal: true
-        }));
-        
-        setMatches(resultsToReturn);
-        onMatchesFound(resultsToReturn);
+        // If no matches > 50%, message to user is handled in UI
+        setMatches(consolidated);
+        onMatchesFound(consolidated);
       } else {
         // X-Ray / Manual Boolean Search Logic
         const keywords = manualQuery.replace(/[()"]/g, '').split(/\s+OR\s+|\s+AND\s+/).map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
@@ -536,125 +547,126 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
   };
 
   const renderFilters = () => (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Search Actions */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2">
         <button 
           onClick={handleGenerate}
           disabled={isGenerating}
-          className="flex-1 py-3 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-coral transition-all disabled:opacity-50"
+          className="flex-1 py-4 bg-midnight text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-coral transition-all disabled:opacity-50 shadow-lg shadow-midnight/10"
         >
-          {isGenerating ? <Zap className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-          Run AI Orbit
+          {isGenerating ? <Zap className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          Run AI Vector Sourcing
         </button>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-2 relative">
-          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-            <Terminal className="w-3 h-3" /> Core Target Title
-          </label>
-          <input 
-            value={title} 
-            onChange={(e) => {
-              setTitle(e.target.value);
-              updateSuggestions('title', e.target.value);
-            }} 
-            onFocus={() => updateSuggestions('title', title)}
-            onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
-            placeholder="e.g. Lead Software Engineer" 
-            className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20 transition-all" 
-          />
-          <AnimatePresence>
-            {activeSuggestionField === 'title' && filteredSuggestions.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-                className="absolute z-50 left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-midnight/5 overflow-hidden"
-              >
-                {filteredSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => handleSuggestionSelect('title', s)}
-                    className="w-full px-4 py-2 text-left text-[9px] font-bold text-midnight/60 hover:bg-neutral-50 hover:text-indigo-electric"
+      <div className="space-y-6">
+        <section className="space-y-4">
+          <h5 className="text-[8px] font-black uppercase text-midnight/20 tracking-[0.2em] border-b border-midnight/5 pb-2">Core Identification</h5>
+          <div className="space-y-2 relative">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30">Primary Role</label>
+            <input 
+              value={title} 
+              onChange={(e) => {
+                setTitle(e.target.value);
+                updateSuggestions('title', e.target.value);
+              }} 
+              onFocus={() => updateSuggestions('title', title)}
+              onBlur={() => setTimeout(() => setActiveSuggestionField(null), 200)}
+              placeholder="e.g. Lead Software Engineer" 
+              className="w-full p-4 bg-warm-gray text-[11px] font-bold rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-midnight/5 transition-all" 
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30">Must-Have Skills</label>
+            <input value={skillQuery} onChange={(e) => setSkillQuery(e.target.value)} 
+              placeholder="React, Node.js, AWS..." 
+              className="w-full p-4 bg-warm-gray text-[11px] font-bold rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-midnight/5" 
+            />
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h5 className="text-[8px] font-black uppercase text-midnight/20 tracking-[0.2em] border-b border-midnight/5 pb-2">Domain & Experience</h5>
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30">Industry Target</label>
+            <select 
+              value={targetIndustry} 
+              onChange={(e) => setTargetIndustry(e.target.value as any)} 
+              className="w-full p-4 bg-warm-gray text-[11px] font-bold rounded-2xl outline-none appearance-none cursor-pointer"
+            >
+              <option value="all">Every Industry</option>
+              <option value="it">Information Technology</option>
+              <option value="non-it">Non-IT / Professional</option>
+              <option value="engineering">Engineering</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="light-industrial">Light Industrial</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex justify-between">
+              Experience Range <span>{minExp} - {maxExp} yrs</span>
+            </label>
+            <div className="px-2">
+              <input 
+                type="range" min="0" max="25" value={maxExp} 
+                onChange={(e) => setMaxExp(parseInt(e.target.value))}
+                className="w-full accent-midnight cursor-pointer" 
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h5 className="text-[8px] font-black uppercase text-midnight/20 tracking-[0.2em] border-b border-midnight/5 pb-2">Location & Logistics</h5>
+          <div className="space-y-4">
+            <div className="flex gap-1 p-1 bg-warm-gray rounded-xl">
+               {['city', 'state', 'country'].map((p) => (
+                  <button key={p} onClick={() => setGeoPrecision(p as any)}
+                    className={cn("flex-1 py-2 rounded-lg text-[8px] font-bold uppercase transition-all", geoPrecision === p ? "bg-midnight text-white shadow-sm" : "text-midnight/40 hover:text-midnight")}
                   >
-                    {s}
+                    {p}
                   </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-            <Brain className="w-3 h-3" /> Must-Have Keywords
-          </label>
-          <input value={skillQuery} onChange={(e) => setSkillQuery(e.target.value)} 
-            placeholder="React, Node.js, AWS..." 
-            className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none focus:bg-white focus:border-indigo-electric/20" 
-          />
-        </div>
-
-        <div className="space-y-4">
-          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2">
-            <MapPin className="w-3 h-3" /> Geographic Limit
-          </label>
-          <div className="flex gap-2 p-1 bg-warm-gray rounded-xl">
-             {['city', 'state', 'country'].map((p) => (
-                <button 
-                  key={p} 
-                  onClick={() => setGeoPrecision(p as any)}
-                  className={cn(
-                    "flex-1 py-2 rounded-lg text-[8px] font-bold uppercase transition-all",
-                    geoPrecision === p ? "bg-midnight text-white shadow-sm" : "text-midnight/40 hover:text-midnight"
-                  )}
-                >
-                  {p}
-                </button>
-             ))}
+               ))}
+            </div>
+            <input value={geoPrecision === 'city' ? geoParams.city : geoPrecision === 'state' ? geoParams.state : geoParams.country} 
+              onChange={(e) => {
+                const val = e.target.value;
+                if (geoPrecision === 'city') setGeoParams({...geoParams, city: val});
+                else if (geoPrecision === 'state') setGeoParams({...geoParams, state: val});
+                else setGeoParams({...geoParams, country: val});
+              }} 
+              placeholder={`Enter ${geoPrecision}...`}
+              className="w-full p-4 bg-warm-gray text-[11px] font-bold rounded-2xl outline-none" 
+            />
           </div>
-          <div className="grid grid-cols-1 gap-2">
-            {geoPrecision === 'city' && <input value={geoParams.city} onChange={(e) => setGeoParams({...geoParams, city: e.target.value})} placeholder="City Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
-            {geoPrecision === 'state' && <input value={geoParams.state} onChange={(e) => setGeoParams({...geoParams, state: e.target.value})} placeholder="State Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
-            {geoPrecision === 'country' && <input value={geoParams.country} onChange={(e) => setGeoParams({...geoParams, country: e.target.value})} placeholder="Country Name" className="p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none" />}
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-2">
-            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Zap className="w-3 h-3" /> Seniority</label>
-            <select value={expLevel} onChange={(e) => setExpLevel(e.target.value as any)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
-              <option value="any">Any</option>
-              <option value="entry">Entry (0-2y)</option>
-              <option value="mid">Mid (3-7y)</option>
-              <option value="senior">Senior (8y+)</option>
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30">Visa Status</label>
+              <select value={visaStatus} onChange={(e) => setVisaStatus(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none">
+                <option value="any">Any</option>
+                <option value="citizen">Citizen</option>
+                <option value="sponsorship">Sponsor</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30">Remote</label>
+              <select value={remotePreference} onChange={(e) => setRemotePreference(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none">
+                <option value="any">Any</option>
+                <option value="remote">Yes</option>
+                <option value="onsite">No</option>
+              </select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Eye className="w-3 h-3" /> Visa</label>
-            <select value={visaStatus} onChange={(e) => setVisaStatus(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
-              <option value="any">Any Status</option>
-              <option value="citizen">Citizen/PR</option>
-              <option value="sponsorship">Needs Sponsor</option>
-            </select>
-          </div>
-        </div>
+        </section>
 
-        <div className="space-y-2">
-          <label className="text-[9px] font-bold uppercase tracking-widest text-midnight/30 flex items-center gap-2"><Monitor className="w-3 h-3" /> Environment</label>
-          <select value={remotePreference} onChange={(e) => setRemotePreference(e.target.value)} className="w-full p-3 bg-warm-gray text-[10px] font-bold rounded-xl outline-none appearance-none cursor-pointer">
-            <option value="any">No Preference</option>
-            <option value="remote">Strictly Remote</option>
-            <option value="onsite">On-site / Hybrid</option>
-          </select>
-        </div>
-
-        <div className="pt-4 border-t border-midnight/5 space-y-4">
-           <label className="flex items-center gap-2 cursor-pointer group">
-            <input type="checkbox" checked={relocation} onChange={(e) => setRelocation(e.target.checked)} className="w-3.5 h-3.5 rounded accent-midnight" />
-            <span className="text-[9px] font-bold text-midnight/40 group-hover:text-midnight uppercase tracking-widest">Willing to Relocate</span>
-          </label>
-           <label className="flex items-center gap-2 cursor-pointer group">
-            <input type="checkbox" checked={isLinkedInConnected} readOnly className="w-3.5 h-3.5 rounded accent-indigo-electric" />
-            <span className="text-[9px] font-bold text-midnight/40 group-hover:text-midnight uppercase tracking-widest">LinkedIn Synced</span>
+        <div className="pt-4 space-y-4">
+           <label className="flex items-center gap-3 cursor-pointer group p-3 bg-warm-gray/50 rounded-2xl hover:bg-warm-gray transition-colors">
+            <input type="checkbox" checked={relocation} onChange={(e) => setRelocation(e.target.checked)} className="w-4 h-4 rounded accent-midnight" />
+            <span className="text-[9px] font-bold text-midnight/60 uppercase tracking-widest">Willing to Relocate</span>
           </label>
         </div>
       </div>
@@ -741,7 +753,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
 
             <div className="grid grid-cols-2 gap-6 pt-6">
                <button 
-                 onClick={() => isLinkedInConnected ? handleLaunchSearch('linkedin') : onConnectLinkedIn?.()} 
+                 onClick={() => isLinkedInConnected ? handleXRaySearch('linkedin') : onConnectLinkedIn?.()} 
                  className={cn(
                    "py-5 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg",
                    isLinkedInConnected ? "bg-[#00a36e] shadow-emerald-200" : "bg-[#0077b5] shadow-blue-200 animate-pulse"
@@ -757,7 +769,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
                    </>
                  )}
                </button>
-               <button onClick={() => handleLaunchSearch('all')} className="py-5 bg-midnight text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
+               <button onClick={() => handleXRaySearch('all')} className="py-5 bg-midnight text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
                  <Globe className="w-4 h-4" /> Global X-Ray Sweep
                </button>
             </div>

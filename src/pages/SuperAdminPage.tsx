@@ -13,9 +13,12 @@ import {
   Search,
   ArrowUpRight,
   MoreVertical,
-  Activity
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Trash2
 } from 'lucide-react';
-import { collection, query, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/src/lib/firebase';
 import { User } from '@/src/types';
 
@@ -23,10 +26,14 @@ interface Organization {
   id: string;
   name: string;
   domain: string;
-  status: 'active' | 'suspended' | 'trial';
+  status: 'active' | 'suspended' | 'trial' | 'pending';
   plan?: 'free' | 'pro' | 'enterprise';
   resumeCount: number;
   userCount: number;
+  employeeCount: number;
+  adminManagerCount: number;
+  adminHeadEmail: string;
+  country: string;
   createdAt: string;
 }
 
@@ -41,10 +48,33 @@ const AdminPage = () => {
   const [showEditOrgModal, setShowEditOrgModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
 
+  const [activeTab, setActiveTab] = useState<'organizations' | 'users'>('organizations');
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchOrgs();
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const q = query(collection(db, 'users'));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsers(data);
+    } catch (error) {
+      console.error('Fetch Users Error:', error);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      fetchUsers();
+    } catch (error) {
+      console.error('Delete User Error:', error);
+    }
+  };
 
   const fetchOrgs = async () => {
     setIsLoading(true);
@@ -55,18 +85,20 @@ const AdminPage = () => {
       
       for (const docSnapshot of snapshot.docs) {
         const data = docSnapshot.data();
-        // In a real app, we'd use aggregations or separate count fields
-        // For this demo, we'll simulate these numbers
-          orgList.push({
-            id: docSnapshot.id,
-            name: data.name,
-            domain: data.domain,
-            status: data.status || 'active',
-            plan: data.plan || 'free',
-            resumeCount: Math.floor(Math.random() * 500), // Simulated
-            userCount: Math.floor(Math.random() * 20),   // Simulated
-            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-          });
+        orgList.push({
+          id: docSnapshot.id,
+          name: data.name,
+          domain: data.domain,
+          status: data.status || 'active',
+          plan: data.plan || 'free',
+          resumeCount: data.resumeCount || 0,
+          userCount: data.userCount || 0,
+          employeeCount: data.employeeCount || 0,
+          adminManagerCount: data.adminManagerCount || 0,
+          adminHeadEmail: data.adminHeadEmail || '',
+          country: data.country || 'USA',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
+        });
       }
       setOrgs(orgList);
     } catch (error) {
@@ -109,6 +141,37 @@ const AdminPage = () => {
       fetchOrgs();
     } catch (error) {
       console.error('Update Org Error:', error);
+    }
+  };
+
+  const handleApproveOrg = async (orgId: string) => {
+    try {
+      await updateDoc(doc(db, 'organizations', orgId), {
+        status: 'active'
+      });
+      fetchOrgs();
+    } catch (error) {
+      console.error('Approve Org Error:', error);
+    }
+  };
+
+  const handleRejectOrg = async (orgId: string) => {
+    try {
+      await updateDoc(doc(db, 'organizations', orgId), {
+        status: 'rejected'
+      });
+      fetchOrgs();
+    } catch (error) {
+      console.error('Reject Org Error:', error);
+    }
+  };
+
+  const handleDeleteOrg = async (orgId: string) => {
+    try {
+      await deleteDoc(doc(db, 'organizations', orgId));
+      fetchOrgs();
+    } catch (error) {
+      console.error('Delete Org Error:', error);
     }
   };
 
@@ -159,7 +222,27 @@ const AdminPage = () => {
         ))}
       </div>
 
-      {/* Organizations Table */}
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-midnight/5 pb-4">
+        <button
+          onClick={() => setActiveTab('organizations')}
+          className={`px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${
+            activeTab === 'organizations' ? 'bg-midnight text-white' : 'bg-transparent text-midnight/40 hover:bg-midnight/5'
+          }`}
+        >
+          Organizations
+        </button>
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${
+            activeTab === 'users' ? 'bg-midnight text-white' : 'bg-transparent text-midnight/40 hover:bg-midnight/5'
+          }`}
+        >
+          Users
+        </button>
+      </div>
+
+      {activeTab === 'organizations' && (
       <div className="bg-white rounded-[2.5rem] border border-midnight/5 shadow-2xl shadow-midnight/5 overflow-hidden">
         <div className="p-8 border-b border-midnight/5 flex flex-col md:flex-row justify-between items-center gap-6">
           <h2 className="text-xl font-bold text-midnight">Active Organizations</h2>
@@ -214,6 +297,7 @@ const AdminPage = () => {
                     <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-tighter ${
                       org.status === 'active' ? 'bg-green-50 text-green-600 border border-green-200' :
                       org.status === 'suspended' ? 'bg-red-50 text-red-600 border border-red-200' :
+                      org.status === 'pending' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
                       'bg-orange-50 text-orange-600 border border-orange-200'
                     }`}>
                       {org.status}
@@ -235,14 +319,40 @@ const AdminPage = () => {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {org.status === 'pending' && (
+                        <>
+                          <button 
+                            onClick={() => handleApproveOrg(org.id)}
+                            className="p-2 hover:bg-green-50 rounded-xl text-green-600 transition-colors"
+                            title="Approve"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleRejectOrg(org.id)}
+                            className="p-2 hover:bg-red-50 rounded-xl text-red-600 transition-colors"
+                            title="Reject"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                       <button 
                         onClick={() => {
                           setEditingOrg(org);
                           setShowEditOrgModal(true);
                         }}
                         className="p-2 hover:bg-midnight/5 rounded-xl text-midnight/40 transition-colors"
+                        title="Edit Settings"
                       >
                         <Settings className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteOrg(org.id)}
+                        className="p-2 hover:bg-red-50 rounded-xl text-red-600 transition-colors"
+                        title="Delete Organization"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -252,6 +362,69 @@ const AdminPage = () => {
           </table>
         </div>
       </div>
+      )}
+
+      {activeTab === 'users' && (
+      <div className="bg-white rounded-[2.5rem] border border-midnight/5 shadow-2xl shadow-midnight/5 overflow-hidden">
+        <div className="p-8 border-b border-midnight/5 flex flex-col md:flex-row justify-between items-center gap-6">
+          <h2 className="text-xl font-bold text-midnight">Global Users</h2>
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+            <input 
+              placeholder="Search users..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-midnight/2 border border-midnight/5 pl-14 pr-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-medium text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-midnight/2">
+                <th className="px-8 py-5 text-[10px] font-bold text-midnight/40 uppercase tracking-widest">User ID & Info</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-midnight/40 uppercase tracking-widest">Email</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-midnight/40 uppercase tracking-widest">Role</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-midnight/40 uppercase tracking-widest text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-midnight/5">
+              {users.filter(u => `${u.name||''} ${u.email||''} ${u.id||''}`.toLowerCase().includes(searchQuery.toLowerCase())).map((u) => (
+                <tr key={u.id} className="hover:bg-midnight/[0.01] transition-colors group">
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center font-bold text-gray-500">
+                        {(u.name || u.displayName || u.email || '?')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-midnight">{u.name || u.displayName || 'No Name'}</p>
+                        <p className="text-[10px] text-midnight/40 font-mono">{u.id}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6 text-sm font-medium text-midnight/60">{u.email}</td>
+                  <td className="px-8 py-6">
+                    <span className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-tighter bg-indigo-50 text-indigo-600 border border-indigo-200">
+                      {u.role || u.userLevel || 'candidate'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <button 
+                      onClick={() => handleDeleteUser(u.id)}
+                      className="p-2 hover:bg-red-50 rounded-xl text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Delete User"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
 
       {/* Provisioning Modal */}
       {showNewOrgModal && (

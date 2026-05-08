@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
 import BrandLogo from '@/src/components/BrandLogo';
+import OrganizationRegistration from '@/src/components/OrganizationRegistration';
 
 interface AuthPageProps {
   onLogin: (email: string, linkedinProfile?: any) => void;
@@ -20,7 +21,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [intendedRole, setIntendedRole] = useState<'recruiter' | 'hunter' | null>(null);
-  const [authMode, setAuthMode] = useState<'social' | 'email-signin' | 'email-signup'>('social');
+  const [authMode, setAuthMode] = useState<'social' | 'email-signin' | 'email-signup' | 'org-registration'>('social');
   
   // Email Form State
   const [email, setEmail] = useState('');
@@ -176,18 +177,30 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
     }
   };
 
+  if (authMode === 'org-registration') {
+    return <OrganizationRegistration onBack={() => setAuthMode('social')} />;
+  }
+
   return (
     <div className="min-h-screen bg-cream font-sans text-midnight overflow-x-hidden selection:bg-indigo-electric/20">
       {/* Navigation */}
-      <nav className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center max-w-7xl mx-auto z-10 w-full">
+      <nav className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center max-w-7xl mx-auto z-50 w-full">
         <div className="flex items-center gap-3">
           <BrandLogo className="w-10 h-10 text-midnight" />
           <span className="text-xl font-serif font-bold tracking-tight italic">Recruit IQ</span>
         </div>
-        <div className="hidden md:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-midnight/60">
-          <a href="#about" className="hover:text-midnight transition-colors">About Us</a>
-          <a href="#features" className="hover:text-midnight transition-colors">Capabilities</a>
-          <a href="#security" className="hover:text-midnight transition-colors">Security</a>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => setAuthMode('org-registration')}
+            className="px-6 py-2 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-coral transition-all"
+          >
+            Create Organization
+          </button>
+          <div className="hidden md:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-midnight/60">
+            <a href="#about" className="hover:text-midnight transition-colors">About Us</a>
+            <a href="#features" className="hover:text-midnight transition-colors">Capabilities</a>
+            <a href="#security" className="hover:text-midnight transition-colors">Security</a>
+          </div>
         </div>
       </nav>
 

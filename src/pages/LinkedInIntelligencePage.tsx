@@ -26,7 +26,11 @@ const LinkedInIntelligencePage = () => {
   const [targetGoal, setTargetGoal] = useState('');
   const [targetCompany, setTargetCompany] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [strategy, setStrategy] = useState<string | null>(null);
+  const [strategy, setStrategy] = useState<{
+    headlineSuggestions: string[];
+    summaryTwist: string;
+    connectionStrategy: string;
+  } | null>(null);
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,7 +51,7 @@ const LinkedInIntelligencePage = () => {
     { label: 'Search Appearances', value: '82', icon: Search, color: 'text-indigo-500' },
     { label: 'Social Selling Index', value: '74/100', icon: BarChart3, color: 'text-violet' },
   ];
-
+  
   const handleGenerateStrategy = async () => {
     if (!targetGoal) return;
     setIsAnalyzing(true);
@@ -62,7 +66,7 @@ const LinkedInIntelligencePage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8 p-8 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-8 p-8 max-w-7xl mx-auto w-full @container">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -203,8 +207,8 @@ const LinkedInIntelligencePage = () => {
             >
               {isAnalyzing ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Analyzing Network DNA...
+                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                   Analyzing Network DNA...
                 </>
               ) : (
                 <>
@@ -220,33 +224,62 @@ const LinkedInIntelligencePage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="bg-indigo-electric/[0.03] rounded-[2.5rem] p-10 border border-indigo-electric/10 relative overflow-hidden"
+                className="space-y-8"
               >
-                <div className="absolute top-10 right-10 opacity-10">
-                  <Sparkles className="w-24 h-24 text-indigo-electric" />
-                </div>
-                
-                <h3 className="text-xl font-bold text-indigo-electric flex items-center gap-2 mb-6 uppercase tracking-tight">
-                  <Sparkles className="w-5 h-5" /> Tactical Deployment Strategy
-                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-electric flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" /> Headline Mastery
+                      </h4>
+                      <div className="space-y-4">
+                        {strategy.headlineSuggestions.map((h, i) => (
+                          <div key={i} className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-center justify-between group">
+                            <p className="text-[11px] font-bold text-midnight italic">"{h}"</p>
+                            <button className="text-indigo-electric opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
 
-                <div className="prose prose-sm max-w-none text-midnight/70 leading-relaxed font-medium space-y-4">
-                  {strategy.split('\n').map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
+                   <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-coral flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" /> About Section Twist
+                      </h4>
+                      <p className="text-xs font-medium text-midnight/70 leading-[1.8] italic bg-coral/5 p-6 rounded-3xl border border-coral/10">
+                        "{strategy.summaryTwist}"
+                      </p>
+                   </div>
                 </div>
 
-                <div className="mt-10 flex gap-4">
-                  <button className="flex-1 px-8 py-4 bg-midnight text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-midnight/90 transition-all">
-                    Apply Optimizations
-                  </button>
-                  <button className="px-8 py-4 bg-white border border-midnight/10 text-midnight rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-midnight/5 transition-all">
-                    Export PDF
-                  </button>
+                <div className="bg-midnight text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                   <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-10">
+                      <div className="md:col-span-2 space-y-6">
+                        <h3 className="text-2xl font-serif font-bold italic text-indigo-200">Connection Velocity Roadmap</h3>
+                        <p className="text-sm text-white/50 leading-relaxed font-medium">Tactical approach to leveraging networks within {targetCompany || 'target ecosystems'}.</p>
+                        
+                        <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
+                           <h5 className="text-[10px] font-bold uppercase tracking-widest text-indigo-300 mb-4">Core Strategy</h5>
+                           <p className="text-[11px] leading-relaxed italic text-white/80">{strategy.connectionStrategy}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="p-6 bg-white/5 rounded-3xl border border-white/10 text-center">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/20 mb-2">Reach Acceleration</p>
+                          <div className="text-3xl font-serif font-bold italic text-emerald-400">+420%</div>
+                        </div>
+                        <button className="w-full py-4 bg-indigo-electric text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-white hover:text-midnight transition-colors">
+                          Activate Roadmap
+                        </button>
+                      </div>
+                   </div>
+                   <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-electric/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
                 </div>
               </motion.div>
             ) : !isAnalyzing && (
-              <div className="h-[400px] bg-midnight/2 rounded-[2.5rem] border-2 border-dashed border-midnight/5 flex flex-center items-center justify-center text-center p-12">
+              <div className="h-[400px] bg-midnight/2 rounded-[2.5rem] border-2 border-dashed border-midnight/5 flex flex-col items-center justify-center text-center p-12">
                 <div className="max-w-xs flex flex-col items-center">
                   <div className="w-16 h-16 bg-white rounded-2xl shadow-inner flex items-center justify-center mb-6">
                     <BarChart3 className="w-8 h-8 text-midnight/20" />

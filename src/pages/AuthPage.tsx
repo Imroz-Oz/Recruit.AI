@@ -182,24 +182,24 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-cream font-sans text-midnight overflow-x-hidden selection:bg-indigo-electric/20">
+    <div className="min-h-screen bg-cream font-sans text-[#0f172a] overflow-x-hidden selection:bg-indigo-electric/20">
       {/* Navigation */}
       <nav className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center max-w-7xl mx-auto z-50 w-full">
         <div className="flex items-center gap-3">
-          <BrandLogo className="w-10 h-10 text-midnight" />
+          <BrandLogo className="w-10 h-10 text-[#0f172a]" />
           <span className="text-xl font-serif font-bold tracking-tight italic">Recruit IQ</span>
         </div>
         <div className="flex items-center gap-6">
           <button 
             onClick={() => setAuthMode('org-registration')}
-            className="px-6 py-2 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-coral transition-all"
+            className="px-6 py-2 bg-[#1e293b] text-white rounded-xl text-base font-bold uppercase tracking-widest hover:bg-coral transition-all"
           >
             Create Organization
           </button>
-          <div className="hidden md:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-midnight/60">
-            <a href="#about" className="hover:text-midnight transition-colors">About Us</a>
-            <a href="#features" className="hover:text-midnight transition-colors">Capabilities</a>
-            <a href="#security" className="hover:text-midnight transition-colors">Security</a>
+          <div className="hidden md:flex gap-8 text-sm font-bold uppercase tracking-widest text-[#0f172a]/60">
+            <a href="#about" className="hover:text-[#0f172a] transition-colors">About Us</a>
+            <a href="#features" className="hover:text-[#0f172a] transition-colors">Capabilities</a>
+            <a href="#security" className="hover:text-[#0f172a] transition-colors">Security</a>
           </div>
         </div>
       </nav>
@@ -216,7 +216,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-electric/5 rounded-full border border-indigo-100">
               <Sparkles className="w-4 h-4 text-indigo-electric" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-electric">
+              <span className="text-base font-bold uppercase tracking-[0.2em] text-indigo-electric">
                 The Blueprint for High-End Staffing
               </span>
             </div>
@@ -225,20 +225,20 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
               Elite Intelligence for the <br /><span className="italic text-violet">Modern Workforce</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-midnight/60 leading-relaxed max-w-lg mb-8">
+            <p className="text-lg md:text-xl text-[#0f172a]/60 leading-relaxed max-w-lg mb-8">
               Empower your recruitment strategy with AI-driven matching, predictive candidate insights, and seamless engagement flows. Connecting top-tier talent with world-class opportunities.
             </p>
 
             <div className="flex gap-4 items-center">
                <div className="flex -space-x-4">
                  {[1,2,3].map(i => (
-                   <div key={i} className="w-10 h-10 rounded-full border-2 border-cream bg-midnight/10 flex items-center justify-center relative shadow-sm">
-                     <User className="w-4 h-4 text-midnight/50" />
+                   <div key={i} className="w-10 h-10 rounded-full border-2 border-cream bg-[#1e293b]/10 flex items-center justify-center relative shadow-sm">
+                     <User className="w-4 h-4 text-[#0f172a]/50" />
                    </div>
                  ))}
                </div>
-               <p className="text-xs font-medium text-midnight/50">
-                 Trusted by <span className="font-bold text-midnight">500+</span> elite staffing teams globally
+               <p className="text-base font-medium text-[#0f172a]/50">
+                 Trusted by <span className="font-bold text-[#0f172a]">500+</span> elite staffing teams globally
                </p>
             </div>
           </motion.div>
@@ -252,7 +252,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             <div className="absolute inset-0 bg-violet/10 blur-3xl rounded-full transform -rotate-12 translate-x-10 scale-110" />
             
             {/* Auth Card */}
-             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl shadow-violet/10 flex flex-col relative z-10 border border-midnight/5 min-h-[500px] justify-center">
+             <div className="w-full max-w-md mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl shadow-violet/10 flex flex-col relative z-10 border border-slate-300/5 min-h-[500px] justify-center">
               
               <AnimatePresence mode="wait">
                   <motion.div 
@@ -263,19 +263,19 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                     className="flex-1 flex flex-col justify-center relative"
                   >
                     <div className="space-y-2 text-center mb-10">
-                      <h2 className="text-3xl font-serif font-bold text-midnight italic">
+                      <h2 className="text-3xl font-serif font-bold text-[#0f172a] italic">
                         {authMode === 'email-signup' ? 'Create Account' : 
                          authMode === 'email-signin' ? 'Welcome Back' :
                          'Authenticate'}
                       </h2>
-                      <p className="text-midnight/40 text-[11px] font-bold uppercase tracking-widest">
+                      <p className="text-[#0f172a]/40 text-sm font-bold uppercase tracking-widest">
                         {authMode === 'social' ? 'Join the Elite Intelligence Network' : 'Secure Enterprise Access'}
                       </p>
                     </div>
 
                     <div className="space-y-4">
                       {error && (
-                        <div className="p-4 bg-coral/10 border border-coral/20 rounded-2xl text-coral text-xs font-bold text-center">
+                        <div className="p-4 bg-coral/10 border border-coral/20 rounded-2xl text-coral text-base font-bold text-center">
                           {error}
                         </div>
                       )}
@@ -285,10 +285,10 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                           <button
                             onClick={handleGoogleLogin}
                             disabled={isLoading}
-                            className="w-full py-4 bg-white border-2 border-warm-gray text-midnight rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:border-midnight/20 hover:bg-neutral-50 transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-4 bg-white border-2 border-warm-gray text-[#0f172a] rounded-2xl font-bold text-sm uppercase tracking-widest hover:border-slate-300/20 hover:bg-neutral-50 transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50"
                           >
                             {isLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-midnight" />
+                              <Loader2 className="w-4 h-4 animate-spin text-[#0f172a]" />
                             ) : (
                               <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
                             )}
@@ -298,31 +298,31 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                           <button
                             onClick={handleLinkedInLogin}
                             disabled={isLoading}
-                            className="w-full py-4 bg-[#0A66C2] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-[#004182] transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-4 bg-[#0A66C2] text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-[#004182] transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 disabled:opacity-50"
                           >
                             {isLoading ? (
                               <Loader2 className="w-4 h-4 animate-spin text-white" />
                             ) : (
-                              <div className="w-4 h-4 bg-white text-[#0A66C2] rounded-sm flex items-center justify-center text-[10px] font-bold">in</div>
+                              <div className="w-4 h-4 bg-white text-[#0A66C2] rounded-sm flex items-center justify-center text-base font-bold">in</div>
                             )}
                             {isLoading ? 'Authenticating...' : 'Continue with LinkedIn'}
                           </button>
 
                           <div className="relative py-2 text-center">
-                            <span className="absolute inset-x-0 top-1/2 h-px bg-midnight/5" />
-                            <span className="relative px-4 bg-white text-[10px] font-bold uppercase tracking-widest text-midnight/20">OR</span>
+                            <span className="absolute inset-x-0 top-1/2 h-px bg-[#1e293b]/5" />
+                            <span className="relative px-4 bg-white text-base font-bold uppercase tracking-widest text-[#0f172a]/20">OR</span>
                           </div>
 
                           <button 
                             onClick={() => setAuthMode('email-signup')}
-                            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
+                            className="w-full py-4 bg-[#1e293b] text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
                           >
                             Sign Up with Email
                           </button>
                           
                           <button 
                             onClick={() => setAuthMode('email-signin')}
-                            className="w-full text-[10px] font-bold uppercase tracking-widest text-midnight/40 hover:text-midnight transition-colors"
+                            className="w-full text-base font-bold uppercase tracking-widest text-[#0f172a]/40 hover:text-[#0f172a] transition-colors"
                           >
                             Already have an account? Sign In
                           </button>
@@ -332,50 +332,50 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                           <button 
                             type="button"
                             onClick={() => setAuthMode('social')}
-                            className="text-left mb-4 text-midnight/30 hover:text-midnight flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                            className="text-left mb-4 text-[#0f172a]/30 hover:text-[#0f172a] flex items-center gap-2 text-base font-bold uppercase tracking-widest transition-colors"
                           >
                             <ArrowRight className="w-3 h-3 rotate-180" /> Back to Social Auth
                           </button>
                           {authMode === 'email-signup' && (
                             <div className="space-y-2">
-                              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Full Name</label>
+                              <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 px-4">Full Name</label>
                               <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20" />
                                 <input 
                                   required
                                   type="text"
                                   value={name}
                                   onChange={(e) => setName(e.target.value)}
-                                  className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                  className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-base font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
                                   placeholder="John Doe"
                                 />
                               </div>
                             </div>
                           )}
                           <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Work Email</label>
+                            <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 px-4">Work Email</label>
                             <div className="relative">
-                              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20" />
                               <input 
                                 required
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-base font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
                                 placeholder="name@agency.com"
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 px-4">Password</label>
+                            <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 px-4">Password</label>
                             <div className="relative">
-                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20" />
                               <input 
                                 required
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
+                                className="w-full pl-12 pr-4 py-4 bg-warm-gray rounded-2xl text-base font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet/20"
                                 placeholder="••••••••"
                               />
                             </div>
@@ -385,7 +385,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                             <button 
                               type="button"
                               onClick={handleForgotPassword}
-                              className="text-[10px] font-bold text-midnight/40 hover:text-midnight uppercase tracking-widest transition-colors"
+                              className="text-base font-bold text-[#0f172a]/40 hover:text-[#0f172a] uppercase tracking-widest transition-colors"
                             >
                               Forgot Password?
                             </button>
@@ -394,7 +394,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                           <button 
                             type="submit"
                             disabled={isLoading}
-                            className="w-full py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 mt-6 flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-[#1e293b] text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 mt-6 flex items-center justify-center gap-2"
                           >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                             {authMode === 'email-signup' ? 'Launch Account' : 'Authenticate'}
@@ -402,9 +402,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                         </form>
                       )}
 
-                      <div className="pt-6 border-t border-midnight/5 text-center">
-                        <p className="text-[10px] text-midnight/30 font-medium leading-relaxed">
-                          By continuing, you agree to our <span className="underline cursor-pointer hover:text-midnight/50">Enterprise Data Protocol</span>.
+                      <div className="pt-6 border-t border-slate-300/5 text-center">
+                        <p className="text-base text-[#0f172a]/30 font-medium leading-relaxed">
+                          By continuing, you agree to our <span className="underline cursor-pointer hover:text-[#0f172a]/50">Enterprise Data Protocol</span>.
                         </p>
                       </div>
                     </div>
@@ -417,12 +417,12 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       </section>
 
       {/* About Us Section */}
-      <section id="about" className="py-24 bg-white border-t border-midnight/5 relative">
+      <section id="about" className="py-24 bg-white border-t border-slate-300/5 relative">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-violet">About Recruit IQ</h2>
+            <h2 className="text-base font-bold uppercase tracking-[0.3em] text-violet">About Recruit IQ</h2>
             <h3 className="text-4xl md:text-5xl font-serif font-bold italic leading-tight">Elevating Human Potential through Machine Precision</h3>
-            <p className="text-xl text-midnight/60 leading-relaxed font-medium">
+            <p className="text-xl text-[#0f172a]/60 leading-relaxed font-medium">
               We built Recruit IQ to bridge the gap between extraordinary talent and visionary enterprises. 
               Our platform doesn't just parse resumes; it understands professional DNA.
             </p>
@@ -434,7 +434,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
       <section id="features" className="py-24 bg-cream">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
            <div className="text-center mb-16 space-y-4">
-             <h2 className="text-sm font-bold uppercase tracking-[0.3em] text-coral">Core Capabilities</h2>
+             <h2 className="text-base font-bold uppercase tracking-[0.3em] text-coral">Core Capabilities</h2>
              <h3 className="text-4xl font-serif font-bold italic">The Intelligence Arsenal</h3>
            </div>
 
@@ -444,19 +444,19 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                { icon: Target, title: 'Selection Orbit', desc: 'Enterprise-grade sourcing logic allowing you to build highly targeted talent pools.', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                { icon: Globe, title: 'Opportunity Matrix', desc: 'Candidates receive AI-curated role recommendations.', color: 'text-amber-500', bg: 'bg-amber-500/10' }
              ].map((feature, i) => (
-               <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-midnight/5 hover:border-midnight/10 transition-colors shadow-sm">
+               <div key={i} className="bg-white p-10 rounded-3xl border border-slate-300/5 hover:border-slate-300/10 transition-colors shadow-sm">
                  <div className={`w-14 h-14 ${feature.bg} rounded-2xl flex items-center justify-center mb-8`}>
                    <feature.icon className={`w-7 h-7 ${feature.color}`} />
                  </div>
                  <h4 className="text-xl font-serif font-bold mb-4">{feature.title}</h4>
-                 <p className="text-midnight/60 font-medium leading-relaxed">{feature.desc}</p>
+                 <p className="text-[#0f172a]/60 font-medium leading-relaxed">{feature.desc}</p>
                </div>
              ))}
            </div>
         </div>
       </section>
 
-      <footer className="bg-midnight border-t border-white/10 text-white/30 py-12 text-center text-xs font-medium">
+      <footer className="bg-[#1e293b] border-t border-white/10 text-white/30 py-12 text-center text-base font-medium">
         <div className="flex flex-col items-center gap-6">
           <p>&copy; {new Date().getFullYear()} Recruit IQ | Intelligence Systems. All rights reserved.</p>
         </div>

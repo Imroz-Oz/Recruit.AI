@@ -5,7 +5,12 @@ export type IndustryType = 'it' | 'non-it' | 'engineering' | 'light-industrial' 
 export type EngagementType = 'contract' | 'direct-hire' | 'contract-to-hire';
 export type TaxType = 'w2' | 't4' | 'c2c' | '1099';
 
-export type UserLevel = 'member' | 'admin' | 'admin_head' | 'superadmin' | 'universal';
+export type UserLevel = 'member' | 'admin' | 'admin_head' | 'superadmin' | 'universal' | 'page_admin';
+
+export type RecruitmentType = 'IT' | 'NON-IT' | 'Healthcare' | 'Engineering' | 'Finance' | 'Other';
+export type ClientDomain = 'manufacturing' | 'semiconductor' | 'aerospace' | 'utility' | 'oil&gas' | 'power generation' | 'telecom' | 'bfsi' | 'banking software' | 'other';
+export type VisaType = 'H1B' | 'US Citizen' | 'Green Card' | 'OPT' | 'CPT' | 'TN' | 'Other';
+export type JobNature = 'Remote' | 'Onsite' | 'Hybrid';
 
 export type Page = 
   | 'dashboard' 
@@ -21,11 +26,15 @@ export type Page =
   | 'resume-vault'
   | 'interview-prep'
   | 'linkedin-intelligence'
+  | 'message-buddy'
+  | 'tasks'
   | 'admin'
   | 'superadmin'
+  | 'scale-up'
   | 'privacy'
   | 'profile'
-  | 'org-management';
+  | 'org-management'
+  | 'company-page-builder';
 
 export interface Organization {
   id: string;
@@ -54,17 +63,23 @@ export interface User {
   selectedMode?: AppMode;
   linkedInConnected?: boolean;
   onboardingCompleted?: boolean;
+  title?: string;
+  domain?: string;
+  skills?: string[];
+  yearsOfExperience?: string;
+  headshotUrl?: string;
   organizationId?: string;
   userLevel?: UserLevel;
   userPlan?: 'free' | 'pro' | 'enterprise';
-  title?: string;
   bio?: string;
   location?: string;
-  skills?: string[];
   industryTypes?: IndustryType[];
   engagementTypes?: EngagementType[];
   taxTypes?: TaxType[];
   systemEmail?: string; // EmployeeNAME.OrganisationNAME@Recruit.AI
+  funNameTag?: string;
+  funNameTagHistory?: { tag: string, date: string }[];
+  createdAt?: string;
 }
 
 export type PipelineStage = 'sourcing' | 'submitted' | 'interviewing' | 'offer' | 'hired' | 'rejected';
@@ -144,6 +159,11 @@ export interface Job {
   id: string;
   title: string;
   company: string;
+  clientName?: string;
+  clientDomain?: ClientDomain;
+  recruitmentType?: RecruitmentType;
+  visaType?: VisaType;
+  jobNature?: JobNature;
   description: string;
   requirements: string[];
   location: string;
@@ -151,6 +171,7 @@ export interface Job {
   postedDate: string;
   url?: string;
   notes?: Note[];
+  createdBy?: string; // So creator can edit it
 }
 
 export interface BooleanSearch {
@@ -168,4 +189,17 @@ export interface BooleanSearch {
   generatedQuery: string;
   titleSuggestions: string[];
   timestamp: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: 'todo' | 'in-progress' | 'completed';
+  assigneeId: string;
+  assigneeName?: string;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: string;
+  dueDate?: string;
 }

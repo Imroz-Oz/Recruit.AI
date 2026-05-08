@@ -11,6 +11,7 @@ interface ModeSelectionProps {
   user: User;
   onSelectMode: (mode: AppMode, options?: { 
     orgData?: { name: string, domain: string },
+    basicDetails?: { name: string, title: string, phone: string },
     industryTypes?: IndustryType[],
     engagementTypes?: EngagementType[],
     taxTypes?: TaxType[]
@@ -19,7 +20,7 @@ interface ModeSelectionProps {
   isLinkedInConnected: boolean;
 }
 
-type OnboardingStep = 'industry' | 'engagement' | 'identity' | 'org-setup';
+type OnboardingStep = 'industry' | 'engagement' | 'identity' | 'basic-details' | 'org-setup';
 
 export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, isLinkedInConnected }: ModeSelectionProps) {
   const [step, setStep] = useState<OnboardingStep>('industry');
@@ -28,6 +29,11 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
     engagementTypes: [] as EngagementType[],
     taxTypes: [] as TaxType[],
     appMode: '' as AppMode,
+  });
+  const [basicDetails, setBasicDetails] = useState({
+    name: user.name || '',
+    title: '',
+    phone: ''
   });
   const [orgForm, setOrgForm] = useState({ name: '', domain: '' });
 
@@ -75,6 +81,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
     if (orgForm.name && orgForm.domain) {
       onSelectMode('recruiter', {
         orgData: orgForm,
+        basicDetails,
         industryTypes: formData.industryTypes,
         engagementTypes: formData.engagementTypes,
         taxTypes: formData.taxTypes
@@ -83,10 +90,26 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
   };
 
   const handleFinalize = (mode: AppMode) => {
+    setFormData(prev => ({ ...prev, appMode: mode }));
     if (mode === 'recruiter') {
+      setStep('basic-details');
+    } else {
+      onSelectMode('hunter', {
+        basicDetails,
+        industryTypes: formData.industryTypes,
+        engagementTypes: formData.engagementTypes,
+        taxTypes: formData.taxTypes
+      });
+    }
+  };
+  
+  const handleBasicSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.appMode === 'recruiter') {
       setStep('org-setup');
     } else {
       onSelectMode('hunter', {
+        basicDetails,
         industryTypes: formData.industryTypes,
         engagementTypes: formData.engagementTypes,
         taxTypes: formData.taxTypes
@@ -105,8 +128,8 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
               className={cn(
                 "h-1 flex-1 rounded-full transition-all duration-500",
                 step === s || (i < 2 && step === 'identity') || (i < 1 && step === 'engagement') || step === 'org-setup'
-                  ? "bg-midnight" 
-                  : "bg-midnight/10"
+                  ? "bg-[#1e293b]" 
+                  : "bg-[#1e293b]/10"
               )}
             />
           ))}
@@ -124,12 +147,12 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
               <header className="text-center space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-electric/5 border border-indigo-100 mb-4">
                   <Fingerprint className="w-3 h-3 text-indigo-electric" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-electric">
+                  <span className="text-base font-bold uppercase tracking-[0.2em] text-indigo-electric">
                     Industry Vector Alignment
                   </span>
                 </div>
-                <h1 className="text-6xl font-serif font-bold text-midnight italic">Choose your sector</h1>
-                <p className="text-midnight/50 font-medium max-w-xl mx-auto">
+                <h1 className="text-6xl font-serif font-bold text-[#0f172a] italic">Choose your sector</h1>
+                <p className="text-[#0f172a]/50 font-medium max-w-xl mx-auto">
                   Your mission interface will be calibrated based on your primary industry of operation.
                 </p>
               </header>
@@ -148,22 +171,22 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                       setFormData({ ...formData, industryTypes: next });
                     }}
                     className={cn(
-                      "group relative p-8 rounded-[2.5rem] border-2 cursor-pointer transition-all",
+                      "group relative p-8 rounded-3xl border-2 cursor-pointer transition-all",
                       formData.industryTypes.includes(ind.id) 
-                        ? "bg-midnight border-midnight shadow-2xl shadow-midnight/20" 
-                        : "bg-white border-warm-gray hover:border-midnight/20"
+                        ? "bg-[#1e293b] border-slate-300 shadow-2xl shadow-midnight/20" 
+                        : "bg-white border-warm-gray hover:border-slate-300/20"
                     )}
                   >
                     <div className="flex items-start gap-6">
                       <div className={cn(
                         "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
-                        formData.industryTypes.includes(ind.id) ? "bg-white text-midnight" : "bg-warm-gray text-midnight/40 group-hover:bg-midnight/5"
+                        formData.industryTypes.includes(ind.id) ? "bg-white text-[#0f172a]" : "bg-warm-gray text-[#0f172a]/40 group-hover:bg-[#1e293b]/5"
                       )}>
                         <ind.icon className="w-7 h-7" />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <h3 className={cn("text-xl font-bold", formData.industryTypes.includes(ind.id) ? "text-white" : "text-midnight")}>
+                          <h3 className={cn("text-xl font-bold", formData.industryTypes.includes(ind.id) ? "text-white" : "text-[#0f172a]")}>
                             {ind.label}
                           </h3>
                           {formData.industryTypes.includes(ind.id) && (
@@ -172,7 +195,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                             </div>
                           )}
                         </div>
-                        <p className={cn("text-xs font-medium italic", formData.industryTypes.includes(ind.id) ? "text-white/50" : "text-midnight/40")}>
+                        <p className={cn("text-base font-medium italic", formData.industryTypes.includes(ind.id) ? "text-white/50" : "text-[#0f172a]/40")}>
                           {ind.description}
                         </p>
                       </div>
@@ -189,7 +212,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                 >
                   <button 
                     onClick={handleNext}
-                    className="px-12 py-5 bg-midnight text-white rounded-3xl font-bold text-xs uppercase tracking-[0.3em] hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/20 flex items-center gap-3"
+                    className="px-12 py-5 bg-[#1e293b] text-white rounded-3xl font-bold text-base uppercase tracking-[0.3em] hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/20 flex items-center gap-3"
                   >
                     Continue System Setup <ArrowRight className="w-5 h-5" />
                   </button>
@@ -208,7 +231,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
             >
               <button 
                 onClick={() => setStep('industry')}
-                className="flex items-center gap-2 text-midnight/40 hover:text-midnight transition-colors font-bold text-[10px] uppercase tracking-widest"
+                className="flex items-center gap-2 text-[#0f172a]/40 hover:text-[#0f172a] transition-colors font-bold text-base uppercase tracking-widest"
               >
                 <ArrowLeft className="w-4 h-4" /> Change Industry
               </button>
@@ -216,13 +239,13 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                 <div className="lg:col-span-2 space-y-12">
                   <header className="space-y-4">
-                    <h2 className="text-5xl font-serif font-bold text-midnight italic">Protocol Parameters</h2>
-                    <p className="text-midnight/50 font-medium">Define your standard engagement and tax classification model.</p>
+                    <h2 className="text-5xl font-serif font-bold text-[#0f172a] italic">Protocol Parameters</h2>
+                    <p className="text-[#0f172a]/50 font-medium">Define your standard engagement and tax classification model.</p>
                   </header>
 
                   <div className="space-y-8">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-bold text-midnight/40 uppercase tracking-[0.2em] px-4">Role Classification</label>
+                      <label className="text-base font-bold text-[#0f172a]/40 uppercase tracking-[0.2em] px-4">Role Classification</label>
                       <div className="grid grid-cols-1 gap-3">
                         {engagements.map((eng) => (
                           <button
@@ -238,7 +261,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                               "flex items-center justify-between p-6 rounded-3xl border-2 transition-all text-left group",
                               formData.engagementTypes.includes(eng.id) 
                                 ? "bg-indigo-electric text-white border-indigo-electric shadow-lg shadow-indigo-500/20" 
-                                : "bg-warm-gray/50 border-warm-gray hover:border-midnight/10"
+                                : "bg-warm-gray/50 border-warm-gray hover:border-slate-300/10"
                             )}
                           >
                             <div className="flex items-center gap-4">
@@ -247,7 +270,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                             </div>
                             <div className={cn(
                               "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                              formData.engagementTypes.includes(eng.id) ? "bg-white border-white" : "border-midnight/10"
+                              formData.engagementTypes.includes(eng.id) ? "bg-white border-white" : "border-slate-300/10"
                             )}>
                               {formData.engagementTypes.includes(eng.id) && <div className="w-2 h-2 bg-indigo-electric rounded-full" />}
                             </div>
@@ -257,7 +280,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-bold text-midnight/40 uppercase tracking-[0.2em] px-4">Tax Environment</label>
+                      <label className="text-base font-bold text-[#0f172a]/40 uppercase tracking-[0.2em] px-4">Tax Environment</label>
                       <div className="grid grid-cols-2 gap-3">
                         {taxes.map((tax) => (
                           <button
@@ -272,15 +295,15 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                             className={cn(
                               "p-6 rounded-3xl border-2 transition-all text-left",
                               formData.taxTypes.includes(tax.id) 
-                                ? "bg-midnight text-white border-midnight" 
-                                : "bg-white border-warm-gray hover:border-midnight/10"
+                                ? "bg-[#1e293b] text-white border-slate-300" 
+                                : "bg-white border-warm-gray hover:border-slate-300/10"
                             )}
                           >
                             <div className="flex justify-between items-start">
                               <span className="block font-bold mb-1">{tax.label}</span>
                               {formData.taxTypes.includes(tax.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
                             </div>
-                            <span className={cn("text-[10px] font-medium italic opacity-50")}>{tax.description}</span>
+                            <span className={cn("text-base font-medium italic opacity-50")}>{tax.description}</span>
                           </button>
                         ))}
                       </div>
@@ -290,27 +313,27 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                   <button
                     disabled={formData.engagementTypes.length === 0 || formData.taxTypes.length === 0}
                     onClick={handleNext}
-                    className="w-full py-6 bg-midnight text-white rounded-3xl font-bold text-xs uppercase tracking-[0.3em] hover:bg-indigo-electric transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-xl shadow-midnight/10"
+                    className="w-full py-6 bg-[#1e293b] text-white rounded-3xl font-bold text-base uppercase tracking-[0.3em] hover:bg-indigo-electric transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-xl shadow-midnight/10"
                   >
                     Lock Protocol <ArrowRight className="inline-ml-2 w-4 h-4 ml-2" />
                   </button>
                 </div>
 
                 <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-xl shadow-midnight/5 space-y-6 relative overflow-hidden">
+                  <div className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-xl shadow-midnight/5 space-y-6 relative overflow-hidden">
                     <div className="flex items-center gap-2 text-indigo-electric mb-2">
                       <Sparkles className="w-4 h-4" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">AI Market Pulse</span>
+                      <span className="text-base font-bold uppercase tracking-widest">AI Market Pulse</span>
                     </div>
                     
-                    <p className="text-xs font-medium text-midnight/60 leading-relaxed italic">
+                    <p className="text-base font-medium text-[#0f172a]/60 leading-relaxed italic">
                       {formData.industryTypes.length > 0 && aiInsights[formData.industryTypes[formData.industryTypes.length - 1]]}
                     </p>
                     
-                    <hr className="border-midnight/5" />
+                    <hr className="border-slate-300/5" />
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-midnight uppercase tracking-widest">
+                      <div className="flex items-center justify-between text-base font-bold text-[#0f172a] uppercase tracking-widest">
                         <span>Industry Saturation</span>
                         <span className="text-indigo-electric">Optimal</span>
                       </div>
@@ -323,7 +346,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                       <div className="pt-4 p-4 bg-indigo-electric/5 rounded-2xl border border-indigo-electric/10">
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-3 h-3 text-indigo-electric mt-0.5" />
-                          <p className="text-[10px] font-medium text-indigo-electric leading-tight">
+                          <p className="text-base font-medium text-indigo-electric leading-tight">
                             {aiInsights[formData.taxTypes[formData.taxTypes.length - 1]]}
                           </p>
                         </div>
@@ -349,12 +372,12 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-100 mb-4">
                   <Fingerprint className="w-3 h-3 text-emerald-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-500">
+                  <span className="text-base font-bold uppercase tracking-[0.2em] text-emerald-500">
                     Mission Vector Identified
                   </span>
                 </div>
-                <h1 className="text-6xl font-serif font-bold text-midnight italic">Select Interface Focus</h1>
-                <p className="text-midnight/50 font-medium max-w-xl mx-auto">
+                <h1 className="text-6xl font-serif font-bold text-[#0f172a] italic">Select Interface Focus</h1>
+                <p className="text-[#0f172a]/50 font-medium max-w-xl mx-auto">
                   Calibration sequence complete for <b>{formData.industryTypes.map(it => it.toUpperCase()).join(', ')}</b>. Select your operational lens.
                 </p>
               </div>
@@ -363,7 +386,7 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                 <motion.div
                   whileHover={{ y: -8 }}
                   onClick={() => handleFinalize('recruiter')}
-                  className="group relative cursor-pointer bg-midnight p-10 rounded-[3.5rem] shadow-2xl shadow-midnight/20 overflow-hidden border border-white/5"
+                  className="group relative cursor-pointer bg-[#1e293b] p-10 rounded-[3.5rem] shadow-2xl shadow-midnight/20 overflow-hidden border border-white/5"
                 >
                   <div className="relative z-10 space-y-8">
                     <div className="w-16 h-16 bg-indigo-electric rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 group-hover:scale-110 transition-transform">
@@ -374,37 +397,97 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                       <p className="text-white/50 leading-relaxed font-medium">Source and manage top talent in {formData.industryTypes.join(' & ').toUpperCase()}.</p>
                     </div>
                     <div className="pt-6 flex items-center justify-between">
-                      <span className="inline-flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-widest">
+                      <span className="inline-flex items-center gap-2 text-indigo-400 text-base font-bold uppercase tracking-widest">
                         Enter Recruiting Portal <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>
                   </div>
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-electric/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-electric/20 transition-all" />
+                  <div className="absolute top-0 right-0 w-56 h-64 bg-indigo-electric/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-electric/20 transition-all" />
                 </motion.div>
 
                 <motion.div
                   whileHover={{ y: -8 }}
                   onClick={() => handleFinalize('hunter')}
-                  className="group relative cursor-pointer bg-white p-10 rounded-[3.5rem] shadow-2xl border border-midnight/5 overflow-hidden"
+                  className="group relative cursor-pointer bg-white p-10 rounded-[3.5rem] shadow-2xl border border-slate-300/5 overflow-hidden"
                 >
                   <div className="relative z-10 space-y-8">
                     <div className="w-16 h-16 bg-coral rounded-2xl flex items-center justify-center shadow-xl shadow-coral/20 group-hover:scale-110 transition-transform">
                       <UserCircle className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-4xl font-serif font-bold text-midnight mb-4 italic">Career JQ</h2>
-                      <p className="text-midnight/50 leading-relaxed font-medium">Find elite {formData.industryTypes.join(' & ').toUpperCase()} roles that fit your profile.</p>
+                      <h2 className="text-4xl font-serif font-bold text-[#0f172a] mb-4 italic">Career JQ</h2>
+                      <p className="text-[#0f172a]/50 leading-relaxed font-medium">Find elite {formData.industryTypes.join(' & ').toUpperCase()} roles that fit your profile.</p>
                     </div>
                     <div className="pt-6 flex items-center justify-between">
-                      <span className="inline-flex items-center gap-2 text-coral text-xs font-bold uppercase tracking-widest">
+                      <span className="inline-flex items-center gap-2 text-coral text-base font-bold uppercase tracking-widest">
                         Enter Career Orbit <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>
                   </div>
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-coral/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-coral/10 transition-all" />
+                  <div className="absolute top-0 right-0 w-56 h-64 bg-coral/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-coral/10 transition-all" />
                 </motion.div>
               </div>
             </motion.div>
+          )}
+
+          {step === 'basic-details' && (
+             <motion.div
+             key="basic-details"
+             initial={{ opacity: 0, scale: 0.95 }}
+             animate={{ opacity: 1, scale: 1 }}
+             exit={{ opacity: 0, scale: 0.95 }}
+             className="max-w-xl mx-auto bg-white p-12 rounded-[3.5rem] shadow-3xl shadow-midnight/10 border border-slate-300/5"
+           >
+             <form onSubmit={handleBasicSubmit} className="space-y-8">
+               <div className="text-center space-y-2">
+                 <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-300/5">
+                   <UserCircle className="w-8 h-8 text-[#0f172a]" />
+                 </div>
+                 <h3 className="text-3xl font-serif font-bold italic text-[#0f172a]">Operator Details</h3>
+                 <p className="text-base text-[#0f172a]/40 font-medium italic">Basic information to set up your profile.</p>
+               </div>
+
+               <div className="space-y-6">
+                 <div className="space-y-2">
+                   <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 ml-1">Full Name</label>
+                   <input 
+                     required
+                     value={basicDetails.name}
+                     onChange={(e) => setBasicDetails({...basicDetails, name: e.target.value})}
+                     className="w-full bg-cream border-2 border-transparent focus:border-indigo-electric/20 rounded-2xl px-6 py-4 outline-none transition-all text-lg font-medium"
+                     placeholder="John Doe"
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 ml-1">Professional Title</label>
+                   <input 
+                     required
+                     value={basicDetails.title}
+                     onChange={(e) => setBasicDetails({...basicDetails, title: e.target.value})}
+                     className="w-full bg-cream border-2 border-transparent focus:border-indigo-electric/20 rounded-2xl px-6 py-4 outline-none transition-all text-lg font-medium"
+                     placeholder="e.g. Lead Talent Architect"
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 ml-1">Direct Line (Optional)</label>
+                   <input 
+                     value={basicDetails.phone}
+                     onChange={(e) => setBasicDetails({...basicDetails, phone: e.target.value})}
+                     className="w-full bg-cream border-2 border-transparent focus:border-indigo-electric/20 rounded-2xl px-6 py-4 outline-none transition-all text-lg font-medium"
+                     placeholder="+1 (555) 000-0000"
+                   />
+                 </div>
+               </div>
+               
+               <button 
+                 type="submit"
+                 disabled={!basicDetails.name || !basicDetails.title}
+                 className="w-full py-5 bg-[#1e293b] text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 mt-4 group flex items-center justify-center gap-3"
+               >
+                 Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+               </button>
+             </form>
+           </motion.div>
           )}
 
           {step === 'org-setup' && (
@@ -413,43 +496,43 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
              initial={{ opacity: 0, scale: 0.95 }}
              animate={{ opacity: 1, scale: 1 }}
              exit={{ opacity: 0, scale: 0.95 }}
-             className="max-w-xl mx-auto bg-white p-12 rounded-[3.5rem] shadow-3xl shadow-midnight/10 border border-midnight/5"
+             className="max-w-xl mx-auto bg-white p-12 rounded-[3.5rem] shadow-3xl shadow-midnight/10 border border-slate-300/5"
            >
              <form onSubmit={handleOrgSubmit} className="space-y-8">
                <div className="text-center space-y-2">
-                 <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center mx-auto mb-4 border border-midnight/5">
-                   <Building2 className="w-8 h-8 text-midnight" />
+                 <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-300/5">
+                   <Building2 className="w-8 h-8 text-[#0f172a]" />
                  </div>
-                 <h3 className="text-3xl font-serif font-bold italic text-midnight">Establish HQ</h3>
-                 <p className="text-sm text-midnight/40 font-medium italic">Finalizing infrastructure for your {formData.industryTypes.join(' & ').toUpperCase()} operation.</p>
+                 <h3 className="text-3xl font-serif font-bold italic text-[#0f172a]">Establish HQ</h3>
+                 <p className="text-base text-[#0f172a]/40 font-medium italic">Finalizing infrastructure for your {formData.industryTypes.join(' & ').toUpperCase()} operation.</p>
                </div>
 
                <div className="space-y-6">
                  <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-midnight/40 uppercase tracking-widest px-4">Org Name</label>
+                   <label className="text-base font-bold text-[#0f172a]/40 uppercase tracking-widest px-4">Org Name</label>
                    <div className="relative">
-                     <Rocket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                     <Rocket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20" />
                      <input 
                        required
                        type="text"
                        value={orgForm.name}
                        onChange={e => setOrgForm({...orgForm, name: e.target.value})}
-                       className="w-full pl-12 pr-6 py-4 bg-warm-gray rounded-2xl text-sm font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-electric/5 transition-all text-midnight"
+                       className="w-full pl-12 pr-6 py-4 bg-warm-gray rounded-2xl text-base font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-electric/5 transition-all text-[#0f172a]"
                        placeholder="Elite Systems Corp."
                      />
                    </div>
                  </div>
 
                  <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-midnight/40 uppercase tracking-widest px-4">Corporate Domain</label>
+                   <label className="text-base font-bold text-[#0f172a]/40 uppercase tracking-widest px-4">Corporate Domain</label>
                    <div className="relative">
-                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20" />
+                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20" />
                      <input 
                        required
                        type="text"
                        value={orgForm.domain}
                        onChange={e => setOrgForm({...orgForm, domain: e.target.value})}
-                       className="w-full pl-12 pr-6 py-4 bg-warm-gray rounded-2xl text-sm font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-electric/5 transition-all text-midnight"
+                       className="w-full pl-12 pr-6 py-4 bg-warm-gray rounded-2xl text-base font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-electric/5 transition-all text-[#0f172a]"
                        placeholder="elitesystems.ai"
                      />
                    </div>
@@ -460,13 +543,13 @@ export default function ModeSelection({ user, onSelectMode, onConnectLinkedIn, i
                  <button 
                    type="button"
                    onClick={() => setStep('identity')}
-                   className="flex-1 py-4 text-[11px] font-bold uppercase tracking-widest text-midnight/40 hover:text-midnight transition-colors"
+                   className="flex-1 py-4 text-sm font-bold uppercase tracking-widest text-[#0f172a]/40 hover:text-[#0f172a] transition-colors"
                  >
                    Back
                  </button>
                  <button 
                    type="submit"
-                   className="flex-[2] py-4 bg-midnight text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-2"
+                   className="flex-[2] py-4 bg-[#1e293b] text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 flex items-center justify-center gap-2"
                  >
                    Activate Command <ArrowRight className="w-4 h-4" />
                  </button>

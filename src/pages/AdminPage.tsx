@@ -12,19 +12,27 @@ import {
   CheckCircle2,
   X,
   Building2,
-  FileText
+  FileText,
+  User as UserIcon,
+  Briefcase
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
 import { User } from '@/src/types';
+import { maskEmail } from '@/src/lib/utils';
+
+const funAdjectives = ['Cosmic', 'Stealth', 'Ninja', 'Cyber', 'Quantum', 'Glitch', 'Neon', 'Turbo', 'Gonzo', 'Caffeinated', 'Rogue', 'Electric'];
+const funNouns = ['Dolphin', 'Unicorn', 'Badger', 'Wizard', 'Mantis', 'Phantom', 'Maverick', 'Hacker', 'Guru', 'Jedi', 'Panda', 'Eagle'];
+const generateFunTag = () => `${funAdjectives[Math.floor(Math.random() * funAdjectives.length)]} ${funNouns[Math.floor(Math.random() * funNouns.length)]}`;
 
 export default function AdminPage() {
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [orgData, setOrgData] = useState<any>(null);
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [newInvite, setNewInvite] = useState({ email: '', role: 'member' as const });
+  const [newInvite, setNewInvite] = useState({ email: '', name: '', title: '', role: 'member' as const });
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -36,7 +44,9 @@ export default function AdminPage() {
     const fetchOrgAndMembers = async () => {
       const userSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       if (!isMounted) return;
-      const orgId = userSnap.data()?.organizationId;
+      const userData = userSnap.data();
+      setCurrentUserData(userData);
+      const orgId = userData?.organizationId;
       
       if (!orgId) {
         setIsLoading(false);
@@ -78,7 +88,7 @@ export default function AdminPage() {
     };
   }, [auth.currentUser]);
 
-  const handleUpdateRole = async (userId: string, newLevel: 'member' | 'admin' | 'admin_head') => {
+  const handleUpdateRole = async (userId: string, newLevel: 'member' | 'admin' | 'admin_head' | 'page_admin') => {
     try {
       await updateDoc(doc(db, 'users', userId), {
         userLevel: newLevel
@@ -98,6 +108,16 @@ export default function AdminPage() {
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleDeleteMember = async (userId: string) => {
+    if (userId === auth.currentUser?.uid) return;
+    
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
     }
   };
 
@@ -121,9 +141,13 @@ export default function AdminPage() {
 
       if (!snap.empty) {
         const userDoc = snap.docs[0];
+        const currentData = userDoc.data();
         await updateDoc(userDoc.ref, {
           organizationId: orgData.id,
-          userLevel: newInvite.role
+          userLevel: newInvite.role,
+          name: newInvite.name || currentData.name || '',
+          title: newInvite.title || currentData.title || '',
+          funNameTag: currentData.funNameTag || generateFunTag()
         });
       } else {
         // For @recruit.ai emails, we simulate auto-creation
@@ -133,7 +157,10 @@ export default function AdminPage() {
             email: newInvite.email,
             organizationId: orgData.id,
             userLevel: newInvite.role,
-            displayName: newInvite.email.split('@')[0],
+            name: newInvite.name || '',
+            title: newInvite.title || '',
+            displayName: newInvite.name || newInvite.email.split('@')[0],
+            funNameTag: generateFunTag(),
             createdAt: serverTimestamp()
           });
         } else {
@@ -142,7 +169,7 @@ export default function AdminPage() {
       }
 
       setIsInviteModalOpen(false);
-      setNewInvite({ email: '', role: 'member' });
+      setNewInvite({ email: '', name: '', title: '', role: 'member' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'invites');
     }
@@ -159,20 +186,20 @@ export default function AdminPage() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-electric/5 rounded-full border border-indigo-100">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-electric" />
-            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Administrative Interface</span>
+            <span className="text-base font-bold text-indigo-electric uppercase tracking-[0.2em]">Administrative Interface</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Team Management</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Control access and roles for {orgData?.name || 'Organization'}</p>
+          <h2 className="text-4xl font-serif font-bold text-[#0f172a] italic">Team Management</h2>
+          <p className="text-[#0f172a]/40 text-base font-bold uppercase tracking-widest">Control access and roles for {orgData?.name || 'Organization'}</p>
         </div>
         <div className="flex gap-4 items-center">
            {orgData?.plan === 'free' && (
-             <div className="px-4 py-2 bg-indigo-electric/10 text-indigo-electric rounded-2xl text-[9px] font-bold uppercase tracking-widest hidden md:block">
+             <div className="px-4 py-2 bg-indigo-electric/10 text-indigo-electric rounded-2xl text-base font-bold uppercase tracking-widest hidden md:block">
                Free Tier Active — Limited Seats
              </div>
            )}
            <button 
              onClick={() => setIsInviteModalOpen(true)}
-             className="px-8 py-3.5 bg-midnight text-white rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 flex items-center gap-2"
+             className="px-8 py-3.5 bg-[#1e293b] text-white rounded-full font-bold text-base uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10 flex items-center gap-2"
            >
              <UserPlus className="w-4 h-4" /> Provision Team Member
            </button>
@@ -190,13 +217,13 @@ export default function AdminPage() {
           { label: 'Cloud Database', value: orgData?.name || '---', icon: Building2, color: 'text-emerald-600' },
           { label: 'Current Plan', value: orgData?.plan ? orgData.plan.toUpperCase() : 'FREE', icon: Shield, color: 'text-amber-500' }
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm flex items-center gap-6">
+          <div key={i} className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm flex items-center gap-6">
             <div className={`w-14 h-14 rounded-2xl bg-warm-gray/30 flex items-center justify-center ${stat.color}`}>
               <stat.icon className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30">{stat.label}</p>
-              <h4 className="text-2xl font-serif font-bold italic text-midnight truncate max-w-[200px]">{stat.value}</h4>
+              <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">{stat.label}</p>
+              <h4 className="text-2xl font-serif font-bold italic text-[#0f172a] truncate max-w-[200px]">{stat.value}</h4>
             </div>
           </div>
         ))}
@@ -205,10 +232,10 @@ export default function AdminPage() {
       {/* Team Member Table */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-midnight">Global Productivity Matrix</h3>
+          <h3 className="text-xl font-bold text-[#0f172a]">Global Productivity Matrix</h3>
           <div className="flex gap-2">
-            <div className="px-4 py-2 bg-white rounded-xl border border-midnight/5 text-[10px] font-bold uppercase tracking-widest text-midnight/40">Efficiency: 94%</div>
-            <div className="px-4 py-2 bg-white rounded-xl border border-midnight/5 text-[10px] font-bold uppercase tracking-widest text-midnight/40">Uptime: 99.9%</div>
+            <div className="px-4 py-2 bg-white rounded-xl border border-slate-300/5 text-base font-bold uppercase tracking-widest text-[#0f172a]/40">Efficiency: 94%</div>
+            <div className="px-4 py-2 bg-white rounded-xl border border-slate-300/5 text-base font-bold uppercase tracking-widest text-[#0f172a]/40">Uptime: 99.9%</div>
           </div>
         </div>
         
@@ -219,26 +246,26 @@ export default function AdminPage() {
             { label: 'Sourcing Velocity', value: '42/wk', trend: '+12%', color: 'text-violet' },
             { label: 'Candidate IQ', value: '94.2', trend: '+1.2', color: 'text-coral' },
           ].map((stat, i) => (
-            <div key={i} className="bg-white p-6 rounded-3xl border border-midnight/5 shadow-sm">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 mb-2">{stat.label}</p>
+            <div key={i} className="bg-white p-6 rounded-3xl border border-slate-300/5 shadow-sm">
+              <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 mb-2">{stat.label}</p>
               <div className="flex items-end justify-between">
                 <span className="text-2xl font-serif font-bold italic">{stat.value}</span>
-                <span className="text-[10px] font-bold text-emerald-500">{stat.trend}</span>
+                <span className="text-base font-bold text-emerald-500">{stat.trend}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="bg-white rounded-[3.5rem] border border-midnight/5 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-8 border-b border-midnight/5 bg-warm-gray/10 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="bg-white rounded-[3.5rem] border border-slate-300/5 shadow-sm overflow-hidden flex flex-col">
+        <div className="p-8 border-b border-slate-300/5 bg-warm-gray/10 flex flex-col md:flex-row justify-between items-center gap-6">
            <div className="relative flex-1 max-w-xl">
-             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
+             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0f172a]/20" />
              <input 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
                placeholder="Filter team by name or email..."
-               className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-midnight/5 outline-none focus:border-indigo-electric/40 text-sm font-medium"
+               className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-slate-300/5 outline-none focus:border-indigo-electric/40 text-base font-medium"
              />
            </div>
         </div>
@@ -246,11 +273,11 @@ export default function AdminPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-midnight/5 bg-warm-gray/5">
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">User Identity</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Authority Level</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Organization</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30 text-right">Actions</th>
+              <tr className="border-b border-slate-300/5 bg-warm-gray/5">
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">User Identity</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Authority Level</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Organization</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-midnight/5">
@@ -267,16 +294,23 @@ export default function AdminPage() {
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
                         member.userPlan === 'enterprise' ? 'bg-purple-50 text-purple-600' :
                         member.userPlan === 'pro' ? 'bg-indigo-electric/10 text-indigo-electric' :
-                        'bg-warm-gray text-midnight/40'
+                        'bg-warm-gray text-[#0f172a]/40'
                       }`}>
-                        {member.displayName?.[0] || member.email[0].toUpperCase()}
+                        {member.name?.[0] || member.displayName?.[0] || member.email[0].toUpperCase()}
                       </div>
                       <div>
-                        <h5 className="font-bold text-midnight">{member.displayName || 'Unnamed Partner'}</h5>
+                        <div className="flex items-center gap-2">
+                          <h5 className="font-bold text-[#0f172a]">{member.name || member.displayName || 'Unnamed Partner'}</h5>
+                          <span className="px-2 py-0.5 bg-[#1e293b] text-white rounded-md text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+                            {member.funNameTag || 'Rookie Agent'}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-[10px] text-midnight/40">{member.email}</p>
+                          <p className="text-base font-medium text-[#0f172a]/60">{member.title || 'Team Member'}</p>
+                          <span className="text-[#0f172a]/20">•</span>
+                          <p className="text-base text-[#0f172a]/40">{maskEmail(member.email)}</p>
                           {member.userPlan && (
-                            <span className="px-1.5 py-0.5 bg-midnight/5 rounded text-[8px] font-bold uppercase text-midnight/30">
+                            <span className="px-1.5 py-0.5 bg-[#1e293b]/5 rounded text-base font-bold uppercase text-[#0f172a]/30">
                               {member.userPlan}
                             </span>
                           )}
@@ -285,34 +319,46 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                    <span className={`px-4 py-1 rounded-full text-base font-black uppercase tracking-widest border ${
                       member.userLevel === 'superadmin' ? 'bg-red-50 text-red-600 border-red-200' :
-                      member.userLevel === 'admin' ? 'bg-amber-50 text-amber-6d00 border-amber-200' :
+                      member.userLevel === 'admin_head' ? 'bg-coral/10 text-coral border-coral/20' :
+                      member.userLevel === 'admin' ? 'bg-amber-50 text-amber-600 border-amber-200' :
                       'bg-indigo-50 text-indigo-600 border-indigo-200'
                     }`}>
                       {member.userLevel || 'member'}
                     </span>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="text-xs font-bold text-midnight uppercase">{orgData?.name || '---'}</div>
-                    <div className="text-[9px] text-midnight/30 font-bold uppercase tracking-widest">Verified Domain</div>
+                    <div className="text-base font-bold text-[#0f172a] uppercase">{orgData?.name || '---'}</div>
+                    <div className="text-base text-[#0f172a]/30 font-bold uppercase tracking-widest">Verified Domain</div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-3">
                        {member.userLevel !== 'superadmin' && (
                          <>
-                           <button 
-                            onClick={() => handleUpdateRole(member.uid, member.userLevel === 'admin' ? 'member' : 'admin')}
-                            title="Toggle Admin Authority"
-                            className="p-2 bg-warm-gray rounded-xl hover:bg-neutral-200 transition-all"
-                           >
-                             <UserCog className="w-5 h-5 text-midnight/40" />
-                           </button>
-                           {member.uid !== auth.currentUser?.uid && (
+                           {(currentUserData?.userLevel === 'admin_head' || currentUserData?.userLevel === 'universal') && (
+                             <button 
+                              onClick={() => handleUpdateRole(member.uid, member.userLevel === 'admin' ? 'member' : 'admin')}
+                              title="Toggle Admin Authority"
+                              className="p-2 bg-warm-gray rounded-xl hover:bg-neutral-200 transition-all opacity-0 group-hover:opacity-100"
+                             >
+                               <UserCog className="w-5 h-5 text-[#0f172a]/40" />
+                             </button>
+                           )}
+                           {member.uid !== auth.currentUser?.uid && (currentUserData?.userLevel === 'admin' || currentUserData?.userLevel === 'admin_head' || currentUserData?.userLevel === 'universal') && (
                              <button 
                               onClick={() => handleRemoveMember(member.uid)}
                               title="Remove from Team"
-                              className="p-2 bg-warm-gray rounded-xl hover:bg-red-50 text-red-400 transition-all"
+                              className="p-2 bg-warm-gray rounded-xl hover:bg-amber-50 text-amber-500 transition-all opacity-0 group-hover:opacity-100"
+                             >
+                               <X className="w-5 h-5" />
+                             </button>
+                           )}
+                           {member.uid !== auth.currentUser?.uid && (currentUserData?.userLevel === 'admin_head' || currentUserData?.userLevel === 'universal') && (
+                             <button 
+                              onClick={() => handleDeleteMember(member.uid)}
+                              title="Permanently Delete User"
+                              className="p-2 bg-warm-gray rounded-xl hover:bg-red-50 text-red-600 transition-all opacity-0 group-hover:opacity-100"
                              >
                                <Trash2 className="w-5 h-5" />
                              </button>
@@ -335,7 +381,7 @@ export default function AdminPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-midnight/80 backdrop-blur-md z-[110] flex items-center justify-center p-6"
+            className="fixed inset-0 bg-[#1e293b]/80 backdrop-blur-md z-[110] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, y: 20 }}
@@ -350,66 +396,98 @@ export default function AdminPage() {
               </button>
 
               <div className="mb-8">
-                <h3 className="text-3xl font-serif font-bold italic text-midnight">Provision Partner</h3>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-midnight/30 mt-2">Grant access to your organization's talent cloud</p>
+                <h3 className="text-3xl font-serif font-bold italic text-[#0f172a]">Provision Partner</h3>
+                <p className="text-base font-bold uppercase tracking-[0.2em] text-[#0f172a]/30 mt-2">Grant access to your organization's talent cloud</p>
               </div>
 
               <form onSubmit={handleInvite} className="space-y-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-midnight/40 ml-1">Work Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
-                    <input 
-                      required
-                      type="email"
-                      value={newInvite.email}
-                      onChange={e => setNewInvite({...newInvite, email: e.target.value})}
-                      className="w-full pl-16 pr-6 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
-                      placeholder="partner@recruit.ai"
-                    />
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-base font-black uppercase text-[#0f172a]/40 ml-1">Team Member Name</label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0f172a]/20" />
+                      <input 
+                        required
+                        type="text"
+                        value={newInvite.name}
+                        onChange={e => setNewInvite({...newInvite, name: e.target.value})}
+                        className="w-full pl-16 pr-6 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
+                        placeholder="e.g. Sarah Connor"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-base font-black uppercase text-[#0f172a]/40 ml-1">Professional Title</label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0f172a]/20" />
+                      <input 
+                        required
+                        type="text"
+                        value={newInvite.title}
+                        onChange={e => setNewInvite({...newInvite, title: e.target.value})}
+                        className="w-full pl-16 pr-6 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
+                        placeholder="e.g. Senior Sourcer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-base font-black uppercase text-[#0f172a]/40 ml-1">Work Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0f172a]/20" />
+                      <input 
+                        required
+                        type="email"
+                        value={newInvite.email}
+                        onChange={e => setNewInvite({...newInvite, email: e.target.value})}
+                        className="w-full pl-16 pr-6 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
+                        placeholder="partner@recruit.ai"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-midnight/40 ml-1">Authority Level</label>
+                  <label className="text-base font-black uppercase text-[#0f172a]/40 ml-1">Authority Level</label>
                   <div className="grid grid-cols-2 gap-4">
                     <button 
                       type="button"
                       onClick={() => setNewInvite({...newInvite, role: 'member'})}
                       className={`p-6 rounded-[2rem] border-2 transition-all text-left ${
-                        newInvite.role === 'member' ? 'border-indigo-electric bg-indigo-electric/5' : 'border-midnight/5 hover:border-midnight/10'
+                        newInvite.role === 'member' ? 'border-indigo-electric bg-indigo-electric/5' : 'border-slate-300/5 hover:border-slate-300/10'
                       }`}
                     >
                       <Users className="w-6 h-6 text-indigo-electric mb-3" />
-                      <p className="text-sm font-bold text-midnight">Team Member</p>
+                      <p className="text-base font-bold text-[#0f172a]">Team Member</p>
                     </button>
                     <button 
                       type="button"
                       onClick={() => setNewInvite({...newInvite, role: 'admin'})}
                       className={`p-6 rounded-[2rem] border-2 transition-all text-left ${
-                        newInvite.role === 'admin' ? 'border-amber-500 bg-amber-500/5' : 'border-midnight/5 hover:border-midnight/10'
+                        newInvite.role === 'admin' ? 'border-amber-500 bg-amber-500/5' : 'border-slate-300/5 hover:border-slate-300/10'
                       }`}
                     >
                       <Shield className="w-6 h-6 text-amber-500 mb-3" />
-                      <p className="text-sm font-bold text-midnight">Manager</p>
+                      <p className="text-base font-bold text-[#0f172a]">Manager</p>
                     </button>
                     <button 
                       type="button"
                       onClick={() => setNewInvite({...newInvite, role: 'admin_head'})}
                       className={`p-6 rounded-[2rem] border-2 transition-all text-left col-span-2 ${
-                        newInvite.role === 'admin_head' ? 'border-coral bg-coral/5' : 'border-midnight/5 hover:border-midnight/10'
+                        newInvite.role === 'admin_head' ? 'border-coral bg-coral/5' : 'border-slate-300/5 hover:border-slate-300/10'
                       }`}
                     >
                       <ShieldCheck className="w-6 h-6 text-coral mb-3" />
-                      <p className="text-sm font-bold text-midnight">Admin Head</p>
-                      <p className="text-[8px] font-bold text-midnight/30 uppercase mt-1">Full access + productivity analytics</p>
+                      <p className="text-base font-bold text-[#0f172a]">Admin Head</p>
+                      <p className="text-base font-bold text-[#0f172a]/30 uppercase mt-1">Full access + productivity analytics</p>
                     </button>
                   </div>
                 </div>
 
                 <button 
                   type="submit"
-                  className="w-full py-5 bg-midnight text-white rounded-[2rem] font-bold text-xs uppercase tracking-[0.2em] shadow-2xl shadow-midnight/20 hover:bg-indigo-electric transition-all"
+                  className="w-full py-5 bg-[#1e293b] text-white rounded-[2rem] font-bold text-base uppercase tracking-[0.2em] shadow-2xl shadow-midnight/20 hover:bg-indigo-electric transition-all"
                 >
                   Confirm Provisioning
                 </button>

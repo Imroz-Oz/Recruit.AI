@@ -83,26 +83,26 @@ export default function AssistantPage({ appMode }: { appMode: AppMode }) {
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col max-w-4xl mx-auto space-y-6">
-      <header className="flex justify-between items-center bg-white p-6 rounded-3xl border border-midnight/5">
+      <header className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-300/5">
         <div className="flex gap-4 items-center">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg bg-indigo-electric shadow-indigo-100">
             <Bot className="w-7 h-7" />
           </div>
           <div>
             <h2 className="text-2xl font-serif font-bold italic">Strategic Advisor</h2>
-            <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-indigo-500">
+            <p className="text-base font-bold uppercase tracking-widest flex items-center gap-1.5 text-indigo-500">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-indigo-500" /> Advisor Neural Active
             </p>
           </div>
         </div>
         <div className="flex gap-3">
           <button className="p-3 rounded-full hover:bg-neutral-100 transition-colors">
-            <MoreHorizontal className="w-5 h-5 text-midnight/40" />
+            <MoreHorizontal className="w-5 h-5 text-[#0f172a]/40" />
           </button>
         </div>
       </header>
 
-      <div className="flex-1 bg-white rounded-3xl border border-midnight/5 shadow-sm flex flex-col overflow-hidden">
+      <div className="flex-1 bg-white rounded-3xl border border-slate-300/5 shadow-sm flex flex-col overflow-hidden">
         <div className="flex-1 p-8 overflow-y-auto space-y-8 scrollbar-hide">
           {messages.map((msg) => (
             <motion.div
@@ -121,15 +121,15 @@ export default function AssistantPage({ appMode }: { appMode: AppMode }) {
                 {msg.role === 'user' ? <User className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
               </div>
               <div className={cn(
-                "p-5 rounded-3xl text-sm leading-relaxed",
+                "p-5 rounded-3xl text-base leading-relaxed",
                 msg.role === 'user' 
-                  ? "bg-midnight text-white rounded-tr-none" 
-                  : "bg-warm-gray text-midnight rounded-tl-none border border-midnight/5 italic"
+                  ? "bg-[#1e293b] text-white rounded-tr-none" 
+                  : "bg-warm-gray text-[#0f172a] rounded-tl-none border border-slate-300/5 italic"
               )}>
                 {msg.text}
                 <span className={cn(
-                  "block text-[9px] mt-2 font-bold uppercase tracking-widest opacity-40",
-                  msg.role === 'user' ? "text-white" : "text-midnight"
+                  "block text-base mt-2 font-bold uppercase tracking-widest opacity-40",
+                  msg.role === 'user' ? "text-white" : "text-[#0f172a]"
                 )}>
                   {msg.timestamp}
                 </span>
@@ -141,27 +141,27 @@ export default function AssistantPage({ appMode }: { appMode: AppMode }) {
               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-electric/10 text-indigo-electric">
                 <Sparkles className="w-5 h-5 animate-pulse" />
               </div>
-              <div className="bg-warm-gray px-6 py-4 rounded-3xl rounded-tl-none border border-midnight/5 flex gap-1">
-                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-midnight/20 rounded-full" />
-                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-midnight/20 rounded-full" />
-                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-midnight/20 rounded-full" />
+              <div className="bg-warm-gray px-6 py-4 rounded-3xl rounded-tl-none border border-slate-300/5 flex gap-1">
+                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-[#1e293b]/20 rounded-full" />
+                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-[#1e293b]/20 rounded-full" />
+                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-[#1e293b]/20 rounded-full" />
               </div>
             </div>
           )}
         </div>
 
-        <div className="p-6 border-t border-midnight/5 bg-warm-gray/30 space-y-4">
+        <div className="p-6 border-t border-slate-300/5 bg-warm-gray/30 space-y-4">
            <div className="flex flex-wrap gap-2">
             {recruiterSuggestions.map((s) => (
               <button 
                 key={s.label}
                 onClick={() => setInput(`Generate a ${s.label.toLowerCase()} for...`)}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-midnight/5 rounded-full text-xs font-bold transition-all text-midnight/60 hover:border-indigo-electric hover:text-indigo-electric"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300/5 rounded-full text-base font-bold transition-all text-[#0f172a]/60 hover:border-indigo-electric hover:text-indigo-electric"
               >
                 <s.icon className="w-3.5 h-3.5" /> {s.label}
               </button>
             ))}
-            <button className="flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold bg-indigo-electric/10 text-indigo-electric">
+            <button className="flex items-center gap-2 px-3 py-2 rounded-full text-base font-bold bg-indigo-electric/10 text-indigo-electric">
               <Plus className="w-3.5 h-3.5" /> Custom
             </button>
           </div>
@@ -172,11 +172,11 @@ export default function AssistantPage({ appMode }: { appMode: AppMode }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask the AI Assistant to generate outreach, improve search, or summarize..."
-              className="w-full pl-6 pr-16 py-4 bg-white border border-midnight/10 rounded-2xl outline-none transition-all text-sm font-medium focus:border-indigo-electric/40 focus:ring-4 focus:ring-indigo-electric/5"
+              className="w-full pl-6 pr-16 py-4 bg-white border border-slate-300/10 rounded-2xl outline-none transition-all text-base font-medium focus:border-indigo-electric/40 focus:ring-4 focus:ring-indigo-electric/5"
             />
             <button 
               onClick={handleSend}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 text-white rounded-xl flex items-center justify-center transition-colors bg-midnight hover:bg-indigo-electric"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 text-white rounded-xl flex items-center justify-center transition-colors bg-[#1e293b] hover:bg-indigo-electric"
             >
               <Send className="w-5 h-5" />
             </button>
@@ -229,14 +229,14 @@ function HunterCareerAIPage() {
           <header className="space-y-4 mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/60 backdrop-blur-sm rounded-full border border-white/50 shadow-sm">
               <Sparkles className="w-4 h-4 text-purple-600" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-700">
+              <span className="text-base font-bold uppercase tracking-[0.2em] text-purple-700">
                 Career AI Copilot
               </span>
             </div>
-            <h2 className="text-5xl font-serif font-bold text-midnight leading-tight tracking-tight">
+            <h2 className="text-5xl font-serif font-bold text-[#0f172a] leading-tight tracking-tight">
               Target &<br/><span className="text-purple-600 italic">Conquer.</span>
             </h2>
-            <p className="text-midnight/60 font-medium text-sm leading-relaxed">
+            <p className="text-[#0f172a]/60 font-medium text-base leading-relaxed">
               Tell me your dream role and company. I'll dynamically reverse-engineer 
               their culture and generate a custom LinkedIn optimization strategy.
             </p>
@@ -244,7 +244,7 @@ function HunterCareerAIPage() {
 
           <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-xl border border-white space-y-5">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 pl-2">Target Title</label>
+              <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 pl-2">Target Title</label>
               <div className="relative">
                 <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-600/50" />
                 <input 
@@ -257,7 +257,7 @@ function HunterCareerAIPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 pl-2">Target Company</label>
+              <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 pl-2">Target Company</label>
               <div className="relative">
                 <Building className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-600/50" />
                 <input 
@@ -272,7 +272,7 @@ function HunterCareerAIPage() {
             <button
               onClick={handleGenerate}
               disabled={isGenerating || !role || !company}
-              className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-purple-600/20 group mt-4"
+              className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold uppercase tracking-widest text-base hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-purple-600/20 group mt-4"
             >
               {isGenerating ? (
                 <>
@@ -290,7 +290,7 @@ function HunterCareerAIPage() {
         </div>
 
         {/* Right Column: AI Results Display */}
-        <div className="flex-1 w-full bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-xl p-8 overflow-y-auto">
+        <div className="flex-1 w-full bg-white/60 backdrop-blur-xl rounded-3xl border border-white shadow-xl p-8 overflow-y-auto">
           <AnimatePresence mode="wait">
             {!results && !isGenerating && (
               <motion.div 
@@ -301,8 +301,8 @@ function HunterCareerAIPage() {
                   <Sparkles className="w-10 h-10 text-purple-500" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-serif font-bold italic text-midnight">Awaiting Mission Parameters</h3>
-                  <p className="text-midnight/40 font-medium max-w-sm mx-auto">
+                  <h3 className="text-2xl font-serif font-bold italic text-[#0f172a]">Awaiting Mission Parameters</h3>
+                  <p className="text-[#0f172a]/40 font-medium max-w-sm mx-auto">
                     Provide your target role and company on the left, and I will generate a tactical blueprint for your LinkedIn profile.
                   </p>
                 </div>
@@ -321,8 +321,8 @@ function HunterCareerAIPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-midnight">Synthesizing Culture & Requirements...</h3>
-                  <p className="text-sm font-medium text-purple-600 animate-pulse">Running semantic analysis on {company}'s DNA...</p>
+                  <h3 className="text-xl font-bold text-[#0f172a]">Synthesizing Culture & Requirements...</h3>
+                  <p className="text-base font-medium text-purple-600 animate-pulse">Running semantic analysis on {company}'s DNA...</p>
                 </div>
               </motion.div>
             )}
@@ -333,8 +333,8 @@ function HunterCareerAIPage() {
                 className="space-y-8"
               >
                 <div>
-                  <h3 className="text-3xl font-serif font-bold italic text-midnight mb-2">Your Optimization Blueprint</h3>
-                  <p className="text-sm font-bold uppercase tracking-widest text-purple-600">Targeting {role} at {company}</p>
+                  <h3 className="text-3xl font-serif font-bold italic text-[#0f172a] mb-2">Your Optimization Blueprint</h3>
+                  <p className="text-base font-bold uppercase tracking-widest text-purple-600">Targeting {role} at {company}</p>
                 </div>
 
                 <motion.div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
@@ -343,15 +343,15 @@ function HunterCareerAIPage() {
                       <Linkedin className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-midnight">Headline Upgrades</h4>
-                      <p className="text-[10px] uppercase tracking-widest text-midnight/40 font-bold">First Impression Logic</p>
+                      <h4 className="font-bold text-[#0f172a]">Headline Upgrades</h4>
+                      <p className="text-base uppercase tracking-widest text-[#0f172a]/40 font-bold">First Impression Logic</p>
                     </div>
                   </div>
                   <div className="grid gap-3">
                     {results.headlineSuggestions?.map((headline: string, i: number) => (
                       <div key={i} className="flex gap-3 items-start p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
                          <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                         <p className="text-sm font-medium text-midnight/80">{headline}</p>
+                         <p className="text-base font-medium text-[#0f172a]/80">{headline}</p>
                       </div>
                     ))}
                   </div>
@@ -363,11 +363,11 @@ function HunterCareerAIPage() {
                       <FileText className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-midnight">About Section Override</h4>
-                      <p className="text-[10px] uppercase tracking-widest text-midnight/40 font-bold">The Narrative Shift</p>
+                      <h4 className="font-bold text-[#0f172a]">About Section Override</h4>
+                      <p className="text-base uppercase tracking-widest text-[#0f172a]/40 font-bold">The Narrative Shift</p>
                     </div>
                   </div>
-                  <p className="text-sm leading-relaxed font-medium text-midnight/70 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 italic">
+                  <p className="text-base leading-relaxed font-medium text-[#0f172a]/70 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 italic">
                     {results.summaryTwist}
                   </p>
                 </motion.div>
@@ -378,11 +378,11 @@ function HunterCareerAIPage() {
                       <Network className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-midnight">Social Engineering Strategy</h4>
-                      <p className="text-[10px] uppercase tracking-widest text-midnight/40 font-bold">Connection Targeting</p>
+                      <h4 className="font-bold text-[#0f172a]">Social Engineering Strategy</h4>
+                      <p className="text-base uppercase tracking-widest text-[#0f172a]/40 font-bold">Connection Targeting</p>
                     </div>
                   </div>
-                  <p className="text-sm leading-relaxed font-medium text-midnight/70 p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50">
+                  <p className="text-base leading-relaxed font-medium text-[#0f172a]/70 p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50">
                     {results.connectionStrategy}
                   </p>
                 </motion.div>

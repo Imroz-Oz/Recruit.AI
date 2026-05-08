@@ -112,26 +112,26 @@ export default function CandidatesPage() {
 
   return (
     <div className="h-full space-y-12 animate-in fade-in duration-700 pb-20 scrollbar-hide overflow-y-auto">
-      <header className="flex justify-between items-end border-b border-midnight/5 pb-10">
+      <header className="flex justify-between items-end border-b border-slate-300/5 pb-10">
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-electric/5 border border-indigo-electric/10 rounded-full">
             <Users className="w-4 h-4 text-indigo-electric" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-electric">
+            <span className="text-base font-bold uppercase tracking-[0.2em] text-indigo-electric">
               Mission Control Flow v2.0
             </span>
           </div>
-          <h2 className="text-5xl font-serif font-bold text-midnight italic">Deployment <span className="text-indigo-electric">Pipeline.</span></h2>
-          <p className="text-midnight/40 text-sm font-medium max-w-lg leading-relaxed italic">
+          <h2 className="text-5xl font-serif font-bold text-[#0f172a] italic">Deployment <span className="text-indigo-electric">Pipeline.</span></h2>
+          <p className="text-[#0f172a]/40 text-base font-medium max-w-lg leading-relaxed italic">
             Monitor and automate your talent lifecycle with neural status synchronization.
           </p>
         </div>
         <div className="flex gap-3">
-          <div className="bg-white border border-midnight/5 p-1.5 rounded-2xl flex gap-1 shadow-sm">
+          <div className="bg-white border border-slate-300/5 p-1.5 rounded-2xl flex gap-1 shadow-sm">
              <button 
                onClick={() => setViewMode('board')}
                className={cn(
                  "p-2 rounded-xl transition-all",
-                 viewMode === 'board' ? "bg-midnight text-white" : "text-midnight/20 hover:text-midnight/40"
+                 viewMode === 'board' ? "bg-[#1e293b] text-white" : "text-[#0f172a]/20 hover:text-[#0f172a]/40"
                )}
              >
                <Columns className="w-4 h-4" />
@@ -140,7 +140,7 @@ export default function CandidatesPage() {
                onClick={() => setViewMode('grid')}
                className={cn(
                  "p-2 rounded-xl transition-all",
-                 viewMode === 'grid' ? "bg-midnight text-white" : "text-midnight/20 hover:text-midnight/40"
+                 viewMode === 'grid' ? "bg-[#1e293b] text-white" : "text-[#0f172a]/20 hover:text-[#0f172a]/40"
                )}
              >
                <LayoutGrid className="w-4 h-4" />
@@ -148,21 +148,21 @@ export default function CandidatesPage() {
           </div>
           <button 
             onClick={() => setIsFilterModalOpen(true)}
-            className="px-6 py-3 bg-white border border-midnight/5 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-midnight hover:border-indigo-electric/30 transition-all flex items-center gap-3 shadow-sm"
+            className="px-6 py-3 bg-white border border-slate-300/5 rounded-2xl font-bold text-base uppercase tracking-widest text-[#0f172a] hover:border-indigo-electric/30 transition-all flex items-center gap-3 shadow-sm"
           >
-            <Filter className={cn("w-4 h-4 text-midnight/20", activeFilters && "text-coral")} /> Filters
+            <Filter className={cn("w-4 h-4 text-[#0f172a]/20", activeFilters && "text-coral")} /> Filters
           </button>
         </div>
       </header>
 
       {/* AI Intelligence Briefing */}
-      <div className="bg-midnight p-10 rounded-[3.5rem] text-white flex items-center justify-between gap-12 relative overflow-hidden group shadow-2xl">
+      <div className="bg-[#1e293b] p-10 rounded-[3.5rem] text-white flex items-center justify-between gap-12 relative overflow-hidden group shadow-2xl">
         <div className="flex items-center gap-8 relative z-10">
           <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-xl border border-white/10">
             <Brain className="w-8 h-8 text-white" />
           </div>
           <div className="space-y-2 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Autonomous Pipeline Advisor</p>
+            <p className="text-base font-bold uppercase tracking-[0.3em] text-white/30">Autonomous Pipeline Advisor</p>
             {isBriefingLoading ? (
               <div className="flex items-center gap-3">
                 <span className="w-2 h-2 bg-indigo-electric rounded-full animate-bounce" />
@@ -187,48 +187,48 @@ export default function CandidatesPage() {
                   <div className="flex items-center justify-between px-2">
                      <div className="flex items-center gap-3">
                         <stage.icon className={cn("w-4 h-4", stage.color)} />
-                        <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-midnight">{stage.label}</h4>
-                        <span className="bg-midnight/5 text-midnight/40 px-2 py-0.5 rounded-full text-[9px] font-black">{stageCandidates.length}</span>
+                        <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-[#0f172a]">{stage.label}</h4>
+                        <span className="bg-[#1e293b]/5 text-[#0f172a]/40 px-2 py-0.5 rounded-full text-base font-black">{stageCandidates.length}</span>
                      </div>
                   </div>
 
-                  <div className="space-y-4 min-h-[500px] p-2 rounded-[2.5rem] bg-midnight/5 border-2 border-dashed border-midnight/5">
+                  <div className="space-y-4 min-h-[500px] p-2 rounded-3xl bg-[#1e293b]/5 border-2 border-dashed border-slate-300/5">
                      {stageCandidates.map(candidate => (
                        <motion.div 
                          key={candidate.id}
                          layoutId={candidate.id}
                          onClick={() => setSelectedCandidate(candidate)}
-                         className="bg-white p-6 rounded-[2rem] border border-midnight/5 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
+                         className="bg-white p-6 rounded-[2rem] border border-slate-300/5 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
                        >
                           <div className="flex items-center gap-4 mb-4">
-                             <div className="w-10 h-10 bg-warm-gray rounded-xl flex items-center justify-center font-serif font-bold italic text-midnight/40 group-hover:bg-midnight group-hover:text-white transition-all text-sm">
+                             <div className="w-10 h-10 bg-warm-gray rounded-xl flex items-center justify-center font-serif font-bold italic text-[#0f172a]/40 group-hover:bg-[#1e293b] group-hover:text-white transition-all text-base">
                                {candidate.name[0]}
                              </div>
                              <div>
-                                <h5 className="text-sm font-serif font-bold text-midnight italic group-hover:text-indigo-electric transition-colors truncate w-40">{candidate.name}</h5>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-midnight/30 truncate w-40">{candidate.title}</p>
+                                <h5 className="text-base font-serif font-bold text-[#0f172a] italic group-hover:text-indigo-electric transition-colors truncate w-40">{candidate.name}</h5>
+                                <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30 truncate w-40">{candidate.title}</p>
                              </div>
                           </div>
                           
                           {candidate.clientName && (
                             <div className="flex items-center gap-2 mb-4 px-2 py-1.5 bg-indigo-50 rounded-lg">
                                <Building2 className="w-3 h-3 text-indigo-400" />
-                               <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter truncate">{candidate.clientName}</span>
+                               <span className="text-base font-bold text-indigo-600 uppercase tracking-tighter truncate">{candidate.clientName}</span>
                             </div>
                           )}
 
-                          <div className="flex justify-between items-center mt-4 pt-4 border-t border-midnight/5">
+                          <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-300/5">
                              <div className="flex -space-x-1.5">
                                {[1, 2].map(i => (
                                  <div key={i} className="w-5 h-5 rounded-full border-2 border-white bg-indigo-electric/10 text-[6px] flex items-center justify-center font-black text-indigo-electric uppercase">AI</div>
                                ))}
                              </div>
-                             <ChevronRight className="w-4 h-4 text-midnight/10 group-hover:text-midnight group-hover:translate-x-1 transition-all" />
+                             <ChevronRight className="w-4 h-4 text-[#0f172a]/10 group-hover:text-[#0f172a] group-hover:translate-x-1 transition-all" />
                           </div>
                        </motion.div>
                      ))}
                      {stageCandidates.length === 0 && (
-                       <div className="h-40 flex items-center justify-center text-midnight/10 italic text-[10px] font-bold uppercase tracking-widest">
+                       <div className="h-40 flex items-center justify-center text-[#0f172a]/10 italic text-base font-bold uppercase tracking-widest">
                          No assets in stage
                        </div>
                      )}
@@ -245,14 +245,14 @@ export default function CandidatesPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => setSelectedCandidate(candidate)}
-              className="bg-white p-8 rounded-[3rem] border border-midnight/5 shadow-sm hover:shadow-2xl hover:shadow-midnight/5 transition-all cursor-pointer group"
+              className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm hover:shadow-2xl hover:shadow-midnight/5 transition-all cursor-pointer group"
             >
               <div className="flex justify-between items-start mb-6">
                 <div className="w-14 h-14 bg-indigo-electric/10 text-indigo-electric rounded-2xl flex items-center justify-center font-serif font-bold text-xl italic group-hover:bg-indigo-electric group-hover:text-white transition-all shadow-lg shadow-indigo-500/10">
                   {candidate.name[0]}
                 </div>
                 <div className={cn(
-                  "px-3 py-1 bg-neutral-100 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                  "px-3 py-1 bg-neutral-100 rounded-full text-base font-bold uppercase tracking-widest",
                   stages.find(s => s.id === candidate.stage)?.color
                 )}>
                   {stages.find(s => s.id === candidate.stage)?.label}
@@ -260,28 +260,28 @@ export default function CandidatesPage() {
               </div>
               
               <div>
-                <h4 className="text-2xl font-serif font-bold text-midnight italic group-hover:text-indigo-electric transition-colors">{candidate.name}</h4>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/40 mt-1">{candidate.title}</p>
+                <h4 className="text-2xl font-serif font-bold text-[#0f172a] italic group-hover:text-indigo-electric transition-colors">{candidate.name}</h4>
+                <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40 mt-1">{candidate.title}</p>
               </div>
 
               <div className="space-y-3 pt-6">
-                <div className="flex items-center gap-3 text-[10px] font-bold text-midnight/60 uppercase tracking-widest">
-                   <Building2 className="w-4 h-4 text-midnight/20" />
+                <div className="flex items-center gap-3 text-base font-bold text-[#0f172a]/60 uppercase tracking-widest">
+                   <Building2 className="w-4 h-4 text-[#0f172a]/20" />
                    {candidate.clientName || "Open Talent Pool"}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-bold text-midnight/60 uppercase tracking-widest">
-                   <Globe className="w-4 h-4 text-midnight/20" />
+                <div className="flex items-center gap-3 text-base font-bold text-[#0f172a]/60 uppercase tracking-widest">
+                   <Globe className="w-4 h-4 text-[#0f172a]/20" />
                    {candidate.location}
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-midnight/5 flex justify-between items-center">
+              <div className="mt-8 pt-6 border-t border-slate-300/5 flex justify-between items-center">
                  <div className="flex -space-x-2">
                    {[1, 2, 3].map(i => (
-                     <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-warm-gray text-[7px] flex items-center justify-center font-bold text-midnight/40 uppercase">IQ</div>
+                     <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-warm-gray text-[7px] flex items-center justify-center font-bold text-[#0f172a]/40 uppercase">IQ</div>
                    ))}
                  </div>
-                 <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                 <span className="text-base font-bold uppercase tracking-widest text-indigo-electric flex items-center gap-2 group-hover:translate-x-1 transition-transform">
                    Optimize Dossier <ChevronRight className="w-3.5 h-3.5" />
                  </span>
               </div>

@@ -21,9 +21,13 @@ import ResumeVaultPage from './pages/ResumeVaultPage';
 import InterviewPrepPage from './pages/InterviewPrepPage';
 import TalentArchivePage from './pages/TalentArchivePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import CompanyPageBuilder from './pages/CompanyPageBuilder';
 import JobInventoryPage from './pages/JobInventoryPage';
 import ProfilePage from './pages/ProfilePage';
 import LinkedInIntelligencePage from './pages/LinkedInIntelligencePage';
+import MessageBuddyPage from './pages/MessageBuddyPage';
+import ScaleUpPlanPage from './pages/ScaleUpPlanPage';
+import TasksPage from './pages/TasksPage';
 import AdminPage from './pages/AdminPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import { Page, User, AppMode, SearchMode, IndustryType, EngagementType, TaxType } from './types';
@@ -32,7 +36,7 @@ import { cn } from '@/src/lib/utils';
 import { Bot, Loader2, ArrowLeft } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestoreErrorHandler';
 
 export default function App() {
@@ -74,13 +78,30 @@ export default function App() {
 
   const completeOnboarding = async (data: any) => {
     if (!user) return;
-    const updatedUser = { ...user, onboardingCompleted: true };
+    const updatedUser = { 
+      ...user, 
+      onboardingCompleted: true,
+      title: data.title,
+      domain: data.domain,
+      skills: data.skills,
+      yearsOfExperience: data.yearsOfExperience,
+      headshotUrl: data.headshotUrl,
+      name: data.name || user.name
+    };
     setUser(updatedUser);
     
     // Update in Firestore
     if (auth.currentUser) {
       try {
-        await setDoc(doc(db, 'users', auth.currentUser.uid), { onboardingCompleted: true }, { merge: true });
+        await setDoc(doc(db, 'users', auth.currentUser.uid), { 
+          onboardingCompleted: true,
+          title: data.title,
+          domain: data.domain,
+          skills: data.skills,
+          yearsOfExperience: data.yearsOfExperience,
+          headshotUrl: data.headshotUrl,
+          name: data.name || user.name
+        }, { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
       }
@@ -113,6 +134,7 @@ export default function App() {
           if (userDoc.exists()) {
             const profile = userDoc.data();
             const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
+            const isGod = ['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '');
             userData = {
               id: firebaseUser.uid,
               uid: firebaseUser.uid,
@@ -131,8 +153,46 @@ export default function App() {
               taxTypes: profile.taxTypes,
               onboardingCompleted: profile.onboardingCompleted,
               organizationId: profile.organizationId,
-              userLevel: profile.userLevel || (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member')
+              userLevel: isGod ? 'universal' : (profile.userLevel || 'member'),
+              userPlan: profile.userPlan || 'free',
+              funNameTag: profile.funNameTag,
+              funNameTagHistory: profile.funNameTagHistory || [],
+              backgroundUrl: profile.backgroundUrl,
+              headshotUrl: profile.headshotUrl,
+              createdAt: profile.createdAt,
+              linkedInConnected: profile.linkedInConnected
             };
+
+            // AI Tag Generation Logic
+            if (userData.linkedInConnected && userData.createdAt) {
+              const createdDate = new Date(userData.createdAt);
+              const now = new Date();
+              const daysSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
+              
+              if (daysSinceCreation > 7 || isGod) {
+                 const history = userData.funNameTagHistory || [];
+                 // Filter to tags in last 300 days
+                 const recentTags = history.filter(h => (now.getTime() - new Date(h.date).getTime()) / (1000 * 3600 * 24) <= 300);
+                 
+                 // If less than 5 tags in 300 days and no tags in last 14 days, generate new one
+                 const daysSinceLastTag = history.length > 0 ? (now.getTime() - new Date(history[history.length - 1].date).getTime()) / (1000 * 3600 * 24) : Infinity;
+
+                 if ((recentTags.length < 5 && daysSinceLastTag > 14) || (isGod && !userData.funNameTag)) {
+                   import('./services/aiService').then(async ({ generateFunNameTag }) => {
+                     const result = await generateFunNameTag(userData, history.map(h => h.tag), isGod);
+                     if (result?.tag) {
+                       const newHistory = [...history, { tag: result.tag, date: now.toISOString() }];
+                       await updateDoc(doc(db, 'users', firebaseUser.uid), {
+                         funNameTag: result.tag,
+                         funNameTagHistory: newHistory
+                       });
+                       setUser(curr => curr ? { ...curr, funNameTag: result.tag, funNameTagHistory: newHistory } : curr);
+                     }
+                   }).catch(console.error);
+                 }
+              }
+            }
+
           } else {
             // Initialize user in Firestore
             const storedRole = localStorage.getItem('intendedRole');
@@ -154,7 +214,8 @@ export default function App() {
               isCompanyUser: role === 'corp',
               selectedMode: selectedMode,
               onboardingCompleted: false,
-              userLevel: (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member')
+              userLevel: (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member'),
+              userPlan: 'free'
             };
 
             try {
@@ -165,6 +226,7 @@ export default function App() {
                 selectedMode: selectedMode || null,
                 onboardingCompleted: false,
                 userLevel: userData.userLevel,
+                userPlan: 'free',
                 createdAt: new Date().toISOString()
               });
               localStorage.removeItem('intendedRole');
@@ -223,6 +285,7 @@ export default function App() {
 
   const handleSelectAppMode = async (mode: AppMode, options?: { 
     orgData?: { name: string, domain: string },
+    basicDetails?: { name: string, title: string, phone: string },
     industryTypes?: IndustryType[],
     engagementTypes?: EngagementType[],
     taxTypes?: TaxType[]
@@ -232,8 +295,14 @@ export default function App() {
         selectedMode: mode,
         industryTypes: options?.industryTypes,
         engagementTypes: options?.engagementTypes,
-        taxTypes: options?.taxTypes
+        taxTypes: options?.taxTypes,
       };
+
+      if (options?.basicDetails) {
+        if (options.basicDetails.name) updates.name = options.basicDetails.name;
+        if (options.basicDetails.title) updates.title = options.basicDetails.title;
+        if (options.basicDetails.phone) updates.phone = options.basicDetails.phone;
+      }
       
       if (options?.orgData) {
         updates.role = 'corp';
@@ -248,6 +317,17 @@ export default function App() {
       // Persist selection
       if (auth.currentUser) {
         try {
+          const firestoreUpdates: any = {
+            selectedMode: mode,
+            industryTypes: options?.industryTypes || [],
+            engagementTypes: options?.engagementTypes || [],
+            taxTypes: options?.taxTypes || [],
+            onboardingCompleted: true,
+            ...(options?.basicDetails?.name ? { name: options.basicDetails.name } : {}),
+            ...(options?.basicDetails?.title ? { title: options.basicDetails.title } : {}),
+            ...(options?.basicDetails?.phone ? { phone: options.basicDetails.phone } : {})
+          };
+          
           if (options?.orgData) {
             // Create Organization document
             const orgRef = doc(collection(db, 'organizations'));
@@ -259,12 +339,16 @@ export default function App() {
               plan: 'free',
               status: 'active'
             });
-            updates.organizationId = orgRef.id;
+            
+            firestoreUpdates.organizationId = orgRef.id;
+            firestoreUpdates.role = 'corp';
+            firestoreUpdates.userLevel = 'admin';
+            firestoreUpdates.isCompanyUser = true;
           }
           
-          await setDoc(doc(db, 'users', auth.currentUser.uid), updates, { merge: true });
+          await setDoc(doc(db, 'users', auth.currentUser.uid), firestoreUpdates, { merge: true });
         } catch (err) {
-          handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+          console.error("Error saving user mode preferences to firestore:", err);
         }
       }
     }
@@ -390,9 +474,11 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={navigateTo} appMode={user.selectedMode || 'recruiter'} />;
+        return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={navigateTo} appMode={user.selectedMode || 'recruiter'} user={user} />;
       case 'sourcing':
-        return <SourcingPage isLinkedInConnected={isLinkedInConnected} onConnectLinkedIn={handleConnectLinkedIn} />;
+        return <SourcingPage isLinkedInConnected={isLinkedInConnected} onConnectLinkedIn={() => navigateTo('linkedin-intelligence')} />;
+      case 'tasks':
+        return <TasksPage userLevel={user.userLevel || 'member'} />;
       case 'candidates':
         return <CandidatesPage />;
       case 'intelligence':
@@ -413,18 +499,40 @@ export default function App() {
         return <InterviewPrepPage />;
       case 'privacy':
         return <PrivacyPolicyPage onBack={user ? () => handleBack() : undefined} />;
+      case 'company-page-builder':
+        return <CompanyPageBuilder />;
       case 'history':
         return <AnalyticsPage />;
       case 'assistant':
         return <AssistantPage appMode={user.selectedMode || 'recruiter'} />;
       case 'linkedin-intelligence':
-        return <LinkedInIntelligencePage />;
+        return <LinkedInIntelligencePage isConnected={isLinkedInConnected} onConnect={handleConnectLinkedIn} />;
+      case 'message-buddy':
+        return <MessageBuddyPage userLevel={user.userLevel || 'member'} userPlan={user.userPlan || 'free'} myProfile={user} />;
       case 'admin':
+        if (user?.userLevel !== 'admin' && user?.userLevel !== 'admin_head' && user?.userLevel !== 'universal') {
+          return (
+            <div className="flex flex-col items-center justify-center h-[70vh]">
+              <h2 className="text-3xl font-serif font-bold italic text-[#0f172a]">Access Denied</h2>
+              <p className="text-base text-[#0f172a]/40 mt-2">You need admin privileges to access team management.</p>
+            </div>
+          );
+        }
         return <AdminPage />;
+      case 'scale-up':
+        return <ScaleUpPlanPage userLevel={user?.userLevel || 'member'} />;
       case 'superadmin':
+        if (user?.userLevel !== 'universal') {
+          return (
+            <div className="flex flex-col items-center justify-center h-[70vh]">
+              <h2 className="text-3xl font-serif font-bold italic text-[#0f172a]">Access Denied</h2>
+              <p className="text-base text-[#0f172a]/40 mt-2">You do not have permission to access the control center.</p>
+            </div>
+          );
+        }
         return <SuperAdminPage />;
       case 'profile':
-        return <ProfilePage user={user} onUpdateUser={(updated) => setUser(updated)} />;
+        return <ProfilePage user={user} onUpdateUser={(updated) => setUser(updated)} onNavigatePage={navigateTo} />;
       default:
         return <DashboardPage onSelectMode={handleSelectSearchMode} onNavigatePage={navigateTo} appMode={user.selectedMode || 'recruiter'} />;
     }
@@ -432,22 +540,26 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex min-h-screen selection:bg-violet/30",
-      user.selectedMode === 'recruiter' ? 'bg-cream' : 'bg-slate-50'
+      "flex min-h-screen selection:bg-violet/30 transition-colors duration-700",
+      user.userLevel === 'universal' ? 'bg-amber-50/50' : user.selectedMode === 'recruiter' ? 'bg-indigo-50/30' : 'bg-rose-50/20'
     )}>
       <Sidebar 
         currentPage={currentPage} 
         setCurrentPage={navigateTo} 
         isLinkedInConnected={isLinkedInConnected}
-        onConnectLinkedIn={handleConnectLinkedIn}
+        onConnectLinkedIn={() => navigateTo('linkedin-intelligence')}
         onLogout={handleLogout}
         appMode={user.selectedMode}
         userLevel={user.userLevel}
+        userPlan={user.userPlan}
+        userName={user.name}
+        funNameTag={user.funNameTag}
         onBack={handleBack}
         canGoBack={pageHistory.length > 0}
         onSwitchMode={() => {
           setPageHistory(prev => [...prev, currentPage]);
-          setUser({ ...user, selectedMode: undefined });
+          const newMode = user.selectedMode === 'recruiter' ? 'hunter' : 'recruiter';
+          handleSelectAppMode(newMode);
         }}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -455,7 +567,7 @@ export default function App() {
       
       <main className={cn(
         "flex-1 p-12 overflow-y-auto relative transition-all duration-500",
-        sidebarCollapsed ? "ml-20" : "ml-64"
+        sidebarCollapsed ? "ml-20" : "ml-56"
       )}>
         {/* Global Navigation Bar */}
         <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
@@ -463,16 +575,16 @@ export default function App() {
             {pageHistory.length > 0 && (
               <button 
                 onClick={handleBack}
-                className="group flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-midnight/5 shadow-sm hover:shadow-md hover:border-midnight/10 transition-all text-midnight/60 hover:text-midnight"
+                className="group flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-slate-300/5 shadow-sm hover:shadow-md hover:border-slate-300/10 transition-all text-[#0f172a]/60 hover:text-[#0f172a]"
               >
-                <div className="w-6 h-6 rounded-lg bg-warm-gray flex items-center justify-center group-hover:bg-midnight group-hover:text-white transition-colors">
+                <div className="w-6 h-6 rounded-lg bg-warm-gray flex items-center justify-center group-hover:bg-[#1e293b] group-hover:text-white transition-colors">
                   <ArrowLeft className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">Back</span>
+                <span className="text-base font-bold uppercase tracking-widest">Back</span>
               </button>
             )}
-            <div className="h-4 w-[1px] bg-midnight/10 mx-2" />
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-midnight/40">
+            <div className="h-4 w-[1px] bg-[#1e293b]/10 mx-2" />
+            <h2 className="text-base font-bold uppercase tracking-[0.3em] text-[#0f172a]/40">
               {currentPage.replace('-', ' ')}
             </h2>
           </div>

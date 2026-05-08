@@ -116,24 +116,33 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
     }
     setIsAiScanning(true);
     try {
-      // 1. Fetch raw content from proxy
-      const response = await fetch(`/api/fetch-url?url=${encodeURIComponent(jobUrl)}`);
-      if (!response.ok) throw new Error('Failed to fetch URL content');
+      let content = jobUrl;
+      // If it looks like a URL, we can attempt to extract it, but since we don't have a backend proxy configured for external scraping, 
+      // we'll instruct the user to paste the raw text. For this demo, we'll try to extract directly from the pasted content.
       
-      const { content } = await response.json();
+      const { extractJobDetailsFromText, analyzeCandidateMatch } = await import('../services/aiService');
+      const extractedJD = await extractJobDetailsFromText(content);
       
-      // 2. Extract JD from HTML using Gemini
-      const { extractJDFromHtml, analyzeMatch } = await import('../services/geminiService');
-      const extractedJD = await extractJDFromHtml(content, jobUrl);
+      const candidateContext = {
+        name: preSearchCandidate.name,
+        title: preSearchCandidate.title,
+        resumeSnippet: preSearchCandidate.resumeSnippet,
+        skills: preSearchCandidate.skills
+      };
       
-      // 3. Perform Match Analysis
-      // Since preSearchCandidate might be partial, we use its resumeSnippet or name/title
-      const candidateContext = preSearchCandidate.resumeSnippet || `${preSearchCandidate.name} - ${preSearchCandidate.title}`;
-      const data = await analyzeMatch(candidateContext, extractedJD);
-      setPortalAnalysis(data);
+      const data = await analyzeCandidateMatch(extractedJD, candidateContext);
+      
+      // Adapt AI response Format for JobFeedPage UI
+      setPortalAnalysis({
+        score: data.score,
+        recommendations: [
+          data.insight || "AI analyzed the core capabilities against JD requirements.",
+          "Consider emphasizing leadership examples based on the parsed description."
+        ]
+      });
     } catch (error) {
       console.error("Portal Match Error:", error);
-      alert("Failed to analyze job URL. Please check the URL and try again.");
+      alert("Failed to analyze job details. Please try pasting the text instead.");
     } finally {
       setIsAiScanning(false);
     }
@@ -208,16 +217,16 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
   return (
     <div className="space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-midnight/5 pb-10">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-slate-300/5 pb-10">
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-100">
             <Globe className="w-4 h-4 text-emerald-600 animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">
+            <span className="text-base font-bold uppercase tracking-[0.2em] text-emerald-600">
               Live Market Feed Active
             </span>
           </div>
-          <h2 className="text-5xl font-serif font-bold text-midnight italic">Opportunity Orbit</h2>
-          <p className="text-midnight/50 font-medium max-w-xl italic">
+          <h2 className="text-5xl font-serif font-bold text-[#0f172a] italic">Opportunity Orbit</h2>
+          <p className="text-[#0f172a]/50 font-medium max-w-xl italic">
             Elite-tier selection orbit mapped to your unique professional DNA across the global enterprise landscape.
           </p>
         </div>
@@ -227,8 +236,8 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
             onClick={performAiScan}
             disabled={isAiScanning}
             className={cn(
-              "px-8 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 transition-all relative overflow-hidden",
-              isAiScanning ? "bg-indigo-electric text-white" : "bg-white border-2 border-midnight/5 text-midnight hover:border-indigo-electric/30 shadow-sm"
+              "px-8 py-3 rounded-2xl font-bold text-base uppercase tracking-widest flex items-center gap-3 transition-all relative overflow-hidden",
+              isAiScanning ? "bg-indigo-electric text-white" : "bg-white border-2 border-slate-300/5 text-[#0f172a] hover:border-indigo-electric/30 shadow-sm"
             )}
           >
              {isAiScanning ? (
@@ -252,10 +261,10 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
              )}
           </button>
 
-          <div className="px-6 py-3 bg-white rounded-2xl border border-midnight/5 shadow-sm flex items-center gap-3">
+          <div className="px-6 py-3 bg-white rounded-2xl border border-slate-300/5 shadow-sm flex items-center gap-3">
             <div className="text-right">
-              <p className="text-[8px] font-bold uppercase tracking-widest text-midnight/30">Candidate DNA Match</p>
-              <p className="text-sm font-serif font-bold text-emerald-600">High Resolution</p>
+              <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Candidate DNA Match</p>
+              <p className="text-base font-serif font-bold text-emerald-600">High Resolution</p>
             </div>
             <div className="w-10 h-10 bg-emerald-600/10 rounded-xl flex items-center justify-center">
               <Zap className="w-5 h-5 text-emerald-600 fill-current" />
@@ -273,13 +282,13 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
             className="mb-12"
           >
             <div className="bg-gradient-to-r from-indigo-electric/5 via-white to-coral/5 p-12 rounded-[4rem] border border-indigo-100 flex flex-col items-center justify-center text-center space-y-6 shadow-2xl shadow-indigo-500/5">
-              <div className="flex flex-wrap justify-center gap-6 text-[9px] font-bold uppercase tracking-[0.3em] text-midnight/20">
+              <div className="flex flex-wrap justify-center gap-6 text-base font-bold uppercase tracking-[0.3em] text-[#0f172a]/20">
                  <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> LinkedIn Recruiter API</span>
                  <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> Greenhouse Enterprise</span>
                  <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Lever Sourcing Hub</span>
                  <span className="flex items-center gap-2"><Search className="w-4 h-4" /> Indeed Direct</span>
               </div>
-              <div className="w-full max-w-xl h-2 bg-midnight/5 rounded-full overflow-hidden">
+              <div className="w-full max-w-xl h-2 bg-[#1e293b]/5 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: '100%' }}
@@ -297,13 +306,13 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1 group">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight/20 group-focus-within:text-emerald-600 transition-colors" />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20 group-focus-within:text-emerald-600 transition-colors" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search roles, skills, or companies..." 
-              className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-midnight/5 outline-none focus:border-emerald-500/20 shadow-sm text-sm font-medium"
+              className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-slate-300/5 outline-none focus:border-emerald-500/20 shadow-sm text-base font-medium"
             />
           </div>
           <div className="flex gap-2">
@@ -312,10 +321,10 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                 key={filter}
                 onClick={() => setFilterType(filter)}
                 className={cn(
-                  "px-6 py-4 rounded-2xl border text-xs font-bold transition-all whitespace-nowrap",
+                  "px-6 py-4 rounded-2xl border text-base font-bold transition-all whitespace-nowrap",
                   filterType === filter 
-                    ? "bg-midnight text-white border-midnight" 
-                    : "bg-white text-midnight/50 border-midnight/5 hover:border-emerald-500/20"
+                    ? "bg-[#1e293b] text-white border-slate-300" 
+                    : "bg-white text-[#0f172a]/50 border-slate-300/5 hover:border-emerald-500/20"
                 )}
               >
                 {filter}
@@ -325,7 +334,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
               onClick={() => setShowAdvanced(!showAdvanced)}
               className={cn(
                 "p-4 rounded-2xl border transition-all",
-                showAdvanced ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-white text-midnight/40 border-midnight/5"
+                showAdvanced ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-white text-[#0f172a]/40 border-slate-300/5"
               )}
             >
               <Filter className="w-5 h-5" />
@@ -342,9 +351,9 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
               className="overflow-hidden"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                <div className="bg-white p-4 rounded-2xl border border-midnight/5 flex items-center gap-3">
-                  <MapPin className="w-4 h-4 text-midnight/20" />
-                  <select className="flex-1 bg-transparent text-xs font-bold text-midnight/60 outline-none appearance-none">
+                <div className="bg-white p-4 rounded-2xl border border-slate-300/5 flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-[#0f172a]/20" />
+                  <select className="flex-1 bg-transparent text-base font-bold text-[#0f172a]/60 outline-none appearance-none">
                     <option>All Locations</option>
                     <option>Remote Only</option>
                     <option>San Francisco, CA</option>
@@ -352,12 +361,12 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                     <option>Austin, TX</option>
                   </select>
                 </div>
-                <div className="bg-white p-4 rounded-2xl border border-midnight/5 flex items-center gap-3">
-                  <Briefcase className="w-4 h-4 text-midnight/20" />
+                <div className="bg-white p-4 rounded-2xl border border-slate-300/5 flex items-center gap-3">
+                  <Briefcase className="w-4 h-4 text-[#0f172a]/20" />
                   <select 
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
-                    className="flex-1 bg-transparent text-xs font-bold text-midnight/60 outline-none appearance-none"
+                    className="flex-1 bg-transparent text-base font-bold text-[#0f172a]/60 outline-none appearance-none"
                   >
                     <option>All Sectors</option>
                     <option>Software / Tech</option>
@@ -366,12 +375,12 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                     <option>E-commerce</option>
                   </select>
                 </div>
-                <div className="bg-white p-4 rounded-2xl border border-midnight/5 flex items-center gap-3">
-                  <DollarSign className="w-4 h-4 text-midnight/20" />
+                <div className="bg-white p-4 rounded-2xl border border-slate-300/5 flex items-center gap-3">
+                  <DollarSign className="w-4 h-4 text-[#0f172a]/20" />
                   <select 
                     value={salaryRange}
                     onChange={(e) => setSalaryRange(e.target.value)}
-                    className="flex-1 bg-transparent text-xs font-bold text-midnight/60 outline-none appearance-none"
+                    className="flex-1 bg-transparent text-base font-bold text-[#0f172a]/60 outline-none appearance-none"
                   >
                     <option>Any Salary</option>
                     <option>$100k - $150k</option>
@@ -394,51 +403,51 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               key={job.id}
-              className="group bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm hover:shadow-2xl hover:shadow-emerald-500/10 transition-all relative overflow-hidden"
+              className="group bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm hover:shadow-2xl hover:shadow-emerald-500/10 transition-all relative overflow-hidden"
             >
               <div className="flex justify-between items-start mb-6">
                 <div className="flex gap-4">
-                  <div className="w-14 h-14 bg-warm-gray/10 rounded-2xl flex items-center justify-center font-serif font-bold text-xl text-midnight/30 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <div className="w-14 h-14 bg-warm-gray/10 rounded-2xl flex items-center justify-center font-serif font-bold text-xl text-[#0f172a]/30 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                     {job.company[0]}
                   </div>
                   <div>
-                    <h3 className="text-xl font-serif font-bold text-midnight group-hover:text-emerald-600 transition-colors uppercase tracking-tight">{job.title}</h3>
-                    <p className="text-sm font-medium text-midnight/60">{job.company} • {job.location}</p>
+                    <h3 className="text-xl font-serif font-bold text-[#0f172a] group-hover:text-emerald-600 transition-colors uppercase tracking-tight">{job.title}</h3>
+                    <p className="text-base font-medium text-[#0f172a]/60">{job.company} • {job.location}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5",
+                    "px-3 py-1 rounded-full text-base font-bold uppercase tracking-widest flex items-center gap-1.5",
                     job.matchScore > 90 ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                   )}>
                     <Sparkles className="w-3 h-3" />
                     {job.matchScore}% Match
                   </div>
-                  <p className="text-[10px] font-bold text-midnight/20 uppercase tracking-widest">{job.posted}</p>
+                  <p className="text-base font-bold text-[#0f172a]/20 uppercase tracking-widest">{job.posted}</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-8">
                 {job.tags.map(tag => (
-                  <span key={tag} className="px-3 py-1 bg-warm-gray/10 rounded-full text-[10px] font-bold text-midnight/40 uppercase tracking-widest">
+                  <span key={tag} className="px-3 py-1 bg-warm-gray/10 rounded-full text-base font-bold text-[#0f172a]/40 uppercase tracking-widest">
                     {tag}
                   </span>
                 ))}
               </div>
 
-              <div className="flex items-center justify-between pt-6 border-t border-midnight/5">
+              <div className="flex items-center justify-between pt-6 border-t border-slate-300/5">
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2 text-midnight/40 font-bold text-[10px] uppercase tracking-widest">
+                  <div className="flex items-center gap-2 text-[#0f172a]/40 font-bold text-base uppercase tracking-widest">
                     <DollarSign className="w-3.5 h-3.5" />
                     {job.salary}
                   </div>
-                  <div className="flex items-center gap-2 text-midnight/40 font-bold text-[10px] uppercase tracking-widest">
+                  <div className="flex items-center gap-2 text-[#0f172a]/40 font-bold text-base uppercase tracking-widest">
                     <Clock className="w-3.5 h-3.5" />
                     {job.type}
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <button className="flex items-center gap-2 px-6 py-3 bg-midnight text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#1e293b] text-white rounded-xl text-base font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all">
                     Apply Now <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                   <button 
@@ -447,7 +456,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                       "p-3 rounded-xl transition-all",
                       savedJobIds.has(job.id) 
                         ? "bg-amber-50 text-amber-500" 
-                        : "bg-warm-gray/10 text-midnight/30 hover:text-amber-500 hover:bg-amber-50"
+                        : "bg-warm-gray/10 text-[#0f172a]/30 hover:text-amber-500 hover:bg-amber-50"
                     )}
                   >
                     <Star className={cn("w-5 h-5", savedJobIds.has(job.id) && "fill-current")} />
@@ -459,12 +468,12 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform" />
             </motion.div>
           )) : (
-            <div className="bg-white/50 border-2 border-dashed border-midnight/5 rounded-[3rem] p-20 flex flex-col items-center justify-center text-center space-y-4">
-              <Globe className="w-12 h-12 text-midnight/10 mb-4" />
-              <p className="text-xl font-serif font-bold text-midnight/30 italic">No direct matches found in this sector.</p>
+            <div className="bg-white/50 border-2 border-dashed border-slate-300/5 rounded-3xl p-20 flex flex-col items-center justify-center text-center space-y-4">
+              <Globe className="w-12 h-12 text-[#0f172a]/10 mb-4" />
+              <p className="text-xl font-serif font-bold text-[#0f172a]/30 italic">No direct matches found in this sector.</p>
               <button 
                 onClick={() => {setFilterType('All Market'); setSearchQuery('');}}
-                className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 underline underline-offset-4"
+                className="text-base font-bold uppercase tracking-widest text-emerald-600 underline underline-offset-4"
               >
                 Reset Market Filters
               </button>
@@ -474,16 +483,16 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
         {/* Sidebar */}
         <aside className="space-y-8">
-          <div className="bg-midnight p-8 rounded-[2.5rem] text-white shadow-2xl shadow-midnight/40 relative overflow-hidden">
+          <div className="bg-[#1e293b] p-8 rounded-3xl text-white shadow-2xl shadow-midnight/40 relative overflow-hidden">
             <div className="relative z-10 space-y-6">
               <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center">
                 <Zap className="w-6 h-6" />
               </div>
               <h4 className="text-2xl font-serif font-bold italic">AI Market Pulse</h4>
-              <p className="text-white/50 text-sm leading-relaxed font-medium">
+              <p className="text-white/50 text-base leading-relaxed font-medium">
                 Your current visibility is high. Senior Designer roles are trending in your sector with a 12% salary bounce this week.
               </p>
-              <button className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all">
+              <button className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-xl text-base font-bold uppercase tracking-[0.2em] transition-all">
                 View Talent Trends
               </button>
             </div>
@@ -491,30 +500,30 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
           </div>
 
           {preSearchCandidate && (
-             <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6 animate-in slide-in-from-right duration-500">
+             <div className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm space-y-6 animate-in slide-in-from-right duration-500">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center font-serif font-bold text-lg italic">
                     {preSearchCandidate.name[0]}
                   </div>
                   <div>
-                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-midnight/30">Target Candidate</h5>
-                    <p className="text-sm font-bold text-midnight tracking-tight">{preSearchCandidate.name}</p>
+                    <h5 className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Target Candidate</h5>
+                    <p className="text-base font-bold text-[#0f172a] tracking-tight">{preSearchCandidate.name}</p>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-midnight/40 ml-1">Analyze External Job URL</label>
+                  <label className="text-base font-black uppercase tracking-[0.2em] text-[#0f172a]/40 ml-1">Analyze Job Description / URL</label>
                   <div className="relative group/url">
-                    <input 
+                    <textarea 
                       value={jobUrl}
                       onChange={(e) => setJobUrl(e.target.value)}
-                      placeholder="Paste LinkedIn/Indeed URL..."
-                      className="w-full px-5 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-emerald-500/20 outline-none text-[10px] font-bold transition-all"
+                      placeholder="Paste Raw Job Details or URL..."
+                      className="w-full px-5 py-4 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-emerald-500/20 outline-none text-base font-bold transition-all min-h-[100px] resize-y"
                     />
                     <button 
                       onClick={handlePortalMatch}
                       disabled={isAiScanning}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-midnight text-white rounded-lg flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-all disabled:opacity-50"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#1e293b] text-white rounded-lg flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-all disabled:opacity-50"
                     >
                       {isAiScanning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Zap className="w-4 h-4" />}
                     </button>
@@ -526,10 +535,10 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="space-y-4 pt-4 border-t border-midnight/5"
+                      className="space-y-4 pt-4 border-t border-slate-300/5"
                     >
                       <div className="flex items-center justify-between">
-                         <span className="text-[10px] font-bold uppercase tracking-widest text-midnight/40">Match Score</span>
+                         <span className="text-base font-bold uppercase tracking-widest text-[#0f172a]/40">Match Score</span>
                          <span className={cn(
                            "text-xl font-serif font-bold italic",
                            portalAnalysis.score > 80 ? "text-emerald-500" : "text-amber-500"
@@ -539,7 +548,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                         {portalAnalysis.recommendations.slice(0, 2).map((rec: string, i: number) => (
                           <div key={i} className="flex gap-2 p-3 bg-warm-gray/30 rounded-xl">
                             <Sparkles className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
-                            <p className="text-[9px] font-medium leading-relaxed text-midnight/60">{rec}</p>
+                            <p className="text-base font-medium leading-relaxed text-[#0f172a]/60">{rec}</p>
                           </div>
                         ))}
                       </div>
@@ -549,17 +558,17 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
              </div>
           )}
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm space-y-6">
-            <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-midnight/20">Saved Searches</h4>
+          <div className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm space-y-6">
+            <h4 className="text-base font-bold uppercase tracking-[0.3em] text-[#0f172a]/20">Saved Searches</h4>
             <div className="space-y-4">
               {['Remote Design Ops', 'Lead Frontend Europe', 'Webflow SaaS'].map((search, i) => (
                 <button key={i} className="w-full flex items-center justify-between p-4 bg-warm-gray/5 rounded-2xl hover:bg-emerald-50 transition-all text-left group">
-                  <span className="text-xs font-bold text-midnight/60 group-hover:text-emerald-600">{search}</span>
-                  <ChevronDown className="w-4 h-4 text-midnight/20 -rotate-90" />
+                  <span className="text-base font-bold text-[#0f172a]/60 group-hover:text-emerald-600">{search}</span>
+                  <ChevronDown className="w-4 h-4 text-[#0f172a]/20 -rotate-90" />
                 </button>
               ))}
             </div>
-            <button className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-emerald-600 underline">
+            <button className="w-full py-3 text-base font-bold uppercase tracking-widest text-emerald-600 underline">
               Browse More Categories
             </button>
           </div>

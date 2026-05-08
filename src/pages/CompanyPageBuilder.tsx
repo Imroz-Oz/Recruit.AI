@@ -1,0 +1,169 @@
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { Building, Sparkles, Plus, Navigation, Rocket, Loader2, Link as LinkIcon, Edit3, Image as ImageIcon } from 'lucide-react';
+import { getAI } from '../services/aiService';
+
+export default function CompanyPageBuilder() {
+  const [url, setUrl] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [pageData, setPageData] = useState<any>({
+    heroTitle: '',
+    heroSubtitle: '',
+    about: '',
+    culture: '',
+    openRolesSummary: ''
+  });
+
+  const handleAIMakePage = async () => {
+    if (!url) return;
+    setIsGenerating(true);
+    try {
+      const ai = getAI();
+      const prompt = `You are a corporate branding AI. You have been provided with this company website URL: ${url}. 
+      Use the googleSearch tool to fetch recent data, mission, products, and culture.
+      Generate a compelling career page structure in JSON format:
+      {
+        "heroTitle": "Catchy headline",
+        "heroSubtitle": "Engaging subheadline",
+        "about": "Mission statement (2-3 sentences)",
+        "culture": "Company culture and perks",
+        "openRolesSummary": "Short blurb predicting what roles they hire for based on their domain"
+      }
+      `;
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: prompt,
+        config: { 
+          responseMimeType: "application/json",
+          tools: [{ googleSearch: {} }] 
+        }
+      });
+      const parsed = JSON.parse(response.text || '{}');
+      setPageData(parsed);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-serif font-black text-[#0f172a] italic mb-2">Corporate Page Studio</h1>
+          <p className="text-base font-medium text-[#0f172a]/50">Design, publish, and sync your company's career portal with our advanced AI suite.</p>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-100 text-indigo-600 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+          <Building className="w-4 h-4" /> Page Admin
+        </div>
+      </div>
+
+      {/* AI Wizard Section */}
+      <div className="bg-white border text-[#0f172a] border-slate-200 rounded-[2rem] p-8 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-[80px] pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row gap-6">
+          <div className="flex-1 space-y-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-indigo-500" />
+              AI Site Ingestion
+            </h2>
+            <p className="text-[#0f172a]/60">Link your company website. Our models will read, learn, and draft a high-converting career page blueprint.</p>
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <input 
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="https://yourcompany.com" 
+                  className="w-full bg-[#1e293b]/5 border border-slate-200 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 font-bold text-[#0f172a]"
+                />
+                <LinkIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <button 
+                onClick={handleAIMakePage}
+                disabled={!url || isGenerating}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />} Generate
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Page Preview Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white border border-slate-200 rounded-[2rem] p-12 shadow-sm relative min-h-[500px]">
+             {/* Simple Hero */}
+             <div className="text-center space-y-6 mb-16">
+               <h1 className="text-5xl font-black text-slate-900 leading-tight">
+                 {pageData.heroTitle || 'Your Future Hero Title'}
+               </h1>
+               <p className="text-xl text-slate-500 max-w-2xl mx-auto">
+                 {pageData.heroSubtitle || 'Engaging subtitle generated by AI based on your company site.'}
+               </p>
+               <div className="flex justify-center gap-4 pt-4">
+                 <button className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold">View Open Roles</button>
+                 <button className="px-8 py-3 bg-slate-100 text-slate-900 rounded-full font-bold">Life at Company</button>
+               </div>
+             </div>
+
+             {/* Content Blocks */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="space-y-4">
+                 <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Our Mission</h3>
+                 <p className="text-slate-700 leading-relaxed font-medium">
+                   {pageData.about || 'A strong mission statement reflecting your corporate identity.'}
+                 </p>
+               </div>
+               <div className="space-y-4">
+                 <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Culture & Perks</h3>
+                 <p className="text-slate-700 leading-relaxed font-medium">
+                   {pageData.culture || 'Details about what makes working here special.'}
+                 </p>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Editor Sidebar */}
+        <div className="space-y-6">
+           <div className="bg-slate-900 text-white rounded-[2rem] p-8 shadow-xl">
+             <h3 className="text-xl font-bold mb-6 flex items-center gap-2"><Edit3 className="w-5 h-5" /> Module Editor</h3>
+             
+             <div className="space-y-6">
+                <div>
+                  <label className="text-xs uppercase font-bold tracking-widest opacity-50 mb-2 block">Hero Title</label>
+                  <textarea 
+                    value={pageData.heroTitle}
+                    onChange={e => setPageData({...pageData, heroTitle: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-medium outline-none focus:border-indigo-500"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase font-bold tracking-widest opacity-50 mb-2 block">Company Culture</label>
+                  <textarea 
+                    value={pageData.culture}
+                    onChange={e => setPageData({...pageData, culture: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-medium outline-none focus:border-indigo-500"
+                    rows={4}
+                  />
+                </div>
+             </div>
+             
+             <div className="mt-8 pt-8 border-t border-white/10 flex flex-col gap-3">
+               <button className="w-full py-4 bg-white text-slate-900 font-bold uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-colors">
+                 Save Draft
+               </button>
+               <button className="w-full py-4 bg-emerald-500 text-white font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-colors">
+                 Publish Live
+               </button>
+             </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+}

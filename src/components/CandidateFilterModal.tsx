@@ -44,7 +44,7 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-midnight/40 backdrop-blur-sm z-[110]"
+            className="fixed inset-0 bg-[#1e293b]/40 backdrop-blur-sm z-[110]"
           />
           <motion.div 
             initial={{ x: '100%' }}
@@ -55,8 +55,8 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
           >
             <div className="flex justify-between items-center mb-10">
               <div className="space-y-1">
-                <h3 className="text-2xl font-serif font-bold italic text-midnight">Mission Filters</h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30">Refine your active candidate pool</p>
+                <h3 className="text-2xl font-serif font-bold italic text-[#0f172a]">Mission Filters</h3>
+                <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Refine your active candidate pool</p>
               </div>
               <button onClick={onClose} className="p-3 bg-warm-gray rounded-full hover:bg-neutral-200 transition-all">
                 <X className="w-5 h-5" />
@@ -66,7 +66,7 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
             <div className="flex-1 overflow-y-auto pr-4 scrollbar-hide space-y-8">
               {/* Pipeline Stage */}
               <div className="space-y-4">
-                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-midnight/40 flex items-center gap-2">
+                <label className="text-sm font-bold uppercase tracking-[0.2em] text-[#0f172a]/40 flex items-center gap-2">
                   <Target className="w-4 h-4" /> Pipeline Stage
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -75,10 +75,10 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
                       key={stage}
                       onClick={() => setFilters({ ...filters, stage })}
                       className={cn(
-                        "px-4 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest border transition-all",
+                        "px-4 py-3 rounded-2xl text-base font-bold uppercase tracking-widest border transition-all",
                         filters.stage === stage 
-                          ? "bg-midnight text-white border-midnight" 
-                          : "bg-white text-midnight/60 border-midnight/5 hover:border-midnight/20"
+                          ? "bg-[#1e293b] text-white border-slate-300" 
+                          : "bg-white text-[#0f172a]/60 border-slate-300/5 hover:border-slate-300/20"
                       )}
                     >
                       {stage}
@@ -89,7 +89,7 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
 
               {/* Location */}
               <div className="space-y-4">
-                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-midnight/40 flex items-center gap-2">
+                <label className="text-sm font-bold uppercase tracking-[0.2em] text-[#0f172a]/40 flex items-center gap-2">
                   <MapPin className="w-4 h-4" /> Geographic Target
                 </label>
                 <input 
@@ -97,19 +97,19 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
                   value={filters.location}
                   onChange={(e) => setFilters({ ...filters, location: e.target.value })}
                   placeholder="City, State or Remote..."
-                  className="w-full p-4 bg-warm-gray rounded-2xl text-sm font-medium border border-transparent focus:bg-white focus:border-indigo-electric/20 transition-all outline-none"
+                  className="w-full p-4 bg-warm-gray rounded-2xl text-base font-medium border border-transparent focus:bg-white focus:border-indigo-electric/20 transition-all outline-none"
                 />
               </div>
 
               {/* Experience */}
               <div className="space-y-4">
-                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-midnight/40 flex items-center gap-2">
+                <label className="text-sm font-bold uppercase tracking-[0.2em] text-[#0f172a]/40 flex items-center gap-2">
                   <Zap className="w-4 h-4" /> Professional Tenure
                 </label>
                 <select 
                   value={filters.minExp}
                   onChange={(e) => setFilters({ ...filters, minExp: e.target.value })}
-                  className="w-full p-4 bg-warm-gray rounded-2xl text-sm font-medium border border-transparent focus:bg-white focus:border-indigo-electric/20 outline-none appearance-none cursor-pointer"
+                  className="w-full p-4 bg-warm-gray rounded-2xl text-base font-medium border border-transparent focus:bg-white focus:border-indigo-electric/20 outline-none appearance-none cursor-pointer"
                 >
                   <option value="">Any Experience Level</option>
                   <option value="1">1+ Year</option>
@@ -122,7 +122,7 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
 
               {/* Internal vs Foreign */}
               <div className="space-y-4">
-                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-midnight/40 flex items-center gap-2">
+                <label className="text-sm font-bold uppercase tracking-[0.2em] text-[#0f172a]/40 flex items-center gap-2">
                   <Briefcase className="w-4 h-4" /> Sourcing Channel
                 </label>
                 <div className="flex gap-4">
@@ -133,22 +133,22 @@ export default function CandidateFilterModal({ isOpen, onClose, onApply }: Candi
                       onChange={(e) => setFilters({ ...filters, isInternal: e.target.checked })}
                       className="w-4 h-4 rounded accent-indigo-electric"
                     />
-                    <span className="text-[10px] font-bold uppercase text-midnight/60">Internal Only</span>
+                    <span className="text-base font-bold uppercase text-[#0f172a]/60">Internal Only</span>
                   </label>
                 </div>
               </div>
             </div>
 
-            <div className="pt-8 border-t border-midnight/5 flex gap-4">
+            <div className="pt-8 border-t border-slate-300/5 flex gap-4">
               <button 
                 onClick={handleReset}
-                className="flex-1 py-4 bg-warm-gray text-midnight/40 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all"
+                className="flex-1 py-4 bg-warm-gray text-[#0f172a]/40 rounded-2xl text-base font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all"
               >
                 Reset
               </button>
               <button 
                 onClick={handleApply}
-                className="flex-[2] py-4 bg-midnight text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
+                className="flex-[2] py-4 bg-[#1e293b] text-white rounded-2xl text-base font-bold uppercase tracking-widest hover:bg-indigo-electric transition-all shadow-xl shadow-midnight/10"
               >
                 Apply Constraints
               </button>

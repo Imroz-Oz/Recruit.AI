@@ -79,7 +79,6 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
       const q = query(
         collection(db, 'candidates'),
-        where('organizationId', '==', orgId),
         orderBy('createdAt', 'desc')
       );
 
@@ -375,17 +374,17 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-electric/5 rounded-full border border-indigo-100">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-electric" />
-            <span className="text-[9px] font-bold text-indigo-electric uppercase tracking-[0.2em]">Asset Repository</span>
+            <span className="text-base font-bold text-indigo-electric uppercase tracking-[0.2em]">Asset Repository</span>
           </div>
-          <h2 className="text-4xl font-serif font-bold text-midnight italic">Library</h2>
-          <p className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">Private, High-Fidelity Talent Repository</p>
+          <h2 className="text-4xl font-serif font-bold text-[#0f172a] italic">Library</h2>
+          <p className="text-[#0f172a]/40 text-base font-bold uppercase tracking-widest">Private, High-Fidelity Talent Repository</p>
         </div>
         <div className="flex gap-4">
            {isSyncing && uploadStats.total > 1 && (
              <div className="flex flex-col items-end justify-center px-4 bg-indigo-50 rounded-2xl border border-indigo-100 min-w-[200px]">
                 <div className="flex justify-between w-full mb-1">
-                  <span className="text-[8px] font-black uppercase text-indigo-600">Ingressing {uploadStats.current}/{uploadStats.total}</span>
-                  <span className="text-[8px] font-black uppercase text-indigo-600">ETA: {uploadStats.eta}</span>
+                  <span className="text-base font-black uppercase text-indigo-600">Ingressing {uploadStats.current}/{uploadStats.total}</span>
+                  <span className="text-base font-black uppercase text-indigo-600">ETA: {uploadStats.eta}</span>
                 </div>
                 <div className="w-full h-1 bg-indigo-200 rounded-full overflow-hidden">
                   <motion.div 
@@ -397,24 +396,24 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
              </div>
            )}
            <label className="cursor-pointer">
-             <div className="px-6 py-3 bg-white border border-indigo-100 text-indigo-electric rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center gap-2 shadow-sm">
+             <div className="px-6 py-3 bg-white border border-indigo-100 text-indigo-electric rounded-full font-bold text-base uppercase tracking-widest hover:bg-indigo-electric hover:text-white transition-all flex items-center gap-2 shadow-sm">
                <Plus className="w-3.5 h-3.5" /> {isSyncing ? 'Syncing...' : 'Bulk File Ingress'}
              </div>
              <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleBulkIngress} />
            </label>
            <button 
              onClick={() => setIsAddModalOpen(true)}
-             className="px-6 py-3 bg-indigo-electric text-white rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-midnight transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+             className="px-6 py-3 bg-indigo-electric text-white rounded-full font-bold text-base uppercase tracking-widest hover:bg-[#1e293b] transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
            >
              <Plus className="w-3.5 h-3.5" /> Manual Ingress
            </button>
            <button 
              onClick={handleDeduplicate}
-             className="px-6 py-3 bg-warm-gray text-midnight/60 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2"
+             className="px-6 py-3 bg-warm-gray text-[#0f172a]/60 rounded-full font-bold text-base uppercase tracking-widest hover:bg-neutral-200 transition-all flex items-center gap-2"
            >
              <Briefcase className="w-3.5 h-3.5" /> Optimize Archive
            </button>
-           <label className="cursor-pointer px-8 py-3 bg-midnight text-white rounded-full font-bold text-xs uppercase tracking-[0.2em] shadow-xl shadow-midnight/20 hover:bg-emerald-600 transition-all flex items-center gap-3">
+           <label className="cursor-pointer px-8 py-3 bg-[#1e293b] text-white rounded-full font-bold text-base uppercase tracking-[0.2em] shadow-xl shadow-midnight/20 hover:bg-emerald-600 transition-all flex items-center gap-3">
              <Upload className={cn("w-4 h-4", isSyncing && "animate-bounce")} /> 
              {isSyncing ? 'Syncing...' : 'Bulk Import Resumes'}
              <input type="file" className="hidden" multiple accept=".pdf,.doc,.docx" onChange={handleBulkImport} />
@@ -423,7 +422,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
       </header>
 
       {/* Boolean Search Engine Section */}
-      <section className="bg-midnight p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
+      <section className="bg-[#1e293b] p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-electric/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="relative z-10 flex gap-12">
           <div className="flex-1 space-y-6">
@@ -433,7 +432,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
               </div>
               <div>
                 <h3 className="text-2xl font-serif font-bold text-white italic">Neural Boolean Engine</h3>
-                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Query your internal cloud with direct logic strings</p>
+                <p className="text-white/40 text-base font-bold uppercase tracking-widest">Query your internal cloud with direct logic strings</p>
               </div>
             </div>
             
@@ -442,7 +441,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                 value={booleanQuery}
                 onChange={(e) => setBooleanQuery(e.target.value)}
                 placeholder='e.g. ("Java" OR "Kotlin") AND "Spring Boot" AND "AWS"...'
-                className="w-full h-32 p-6 bg-white/5 border border-white/10 rounded-[2rem] outline-none focus:border-indigo-electric/50 text-white font-mono text-xs leading-relaxed transition-all resize-none shadow-inner"
+                className="w-full h-32 p-6 bg-white/5 border border-white/10 rounded-[2rem] outline-none focus:border-indigo-electric/50 text-white font-mono text-base leading-relaxed transition-all resize-none shadow-inner"
               />
               <div className="absolute bottom-4 right-4 flex gap-2">
                 {isBooleanSearchActive && (
@@ -455,7 +454,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                 )}
                 <button 
                   onClick={handleBooleanSearch}
-                  className="px-8 py-3 bg-indigo-electric text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-white hover:text-midnight transition-all shadow-lg"
+                  className="px-8 py-3 bg-indigo-electric text-white rounded-xl font-bold text-base uppercase tracking-widest hover:bg-white hover:text-[#0f172a] transition-all shadow-lg"
                 >
                   Internal Search
                 </button>
@@ -464,7 +463,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
             <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] space-y-4">
               <div className="flex justify-between items-center px-1">
-                <h5 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
+                <h5 className="text-base font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5" /> Target Location (Required for X-Ray)
                 </h5>
               </div>
@@ -473,23 +472,23 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                    value={xRayLocation.country}
                    onChange={(e) => setXRayLocation({...xRayLocation, country: e.target.value})}
                    placeholder="Country"
-                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-base text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
                  />
                  <input 
                    value={xRayLocation.state}
                    onChange={(e) => setXRayLocation({...xRayLocation, state: e.target.value})}
                    placeholder="State"
-                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-base text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
                  />
                  <input 
                    value={xRayLocation.zip}
                    onChange={(e) => setXRayLocation({...xRayLocation, zip: e.target.value})}
                    placeholder="Zip"
-                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
+                   className="bg-white/5 border border-white/10 rounded-xl p-3 text-base text-white placeholder:text-white/20 outline-none focus:border-indigo-electric/40 transition-all"
                  />
               </div>
               {showLocationError && (
-                <p className="text-[8px] font-bold text-coral uppercase tracking-widest px-1 animate-pulse">
+                <p className="text-base font-bold text-coral uppercase tracking-widest px-1 animate-pulse">
                   Please provide at least one location parameter (Country, State, or Zip)
                 </p>
               )}
@@ -498,7 +497,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
             <div className="grid grid-cols-1 gap-4">
               <button 
                 onClick={handleXRaySearch}
-                className="py-5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl"
+                className="py-5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl text-base font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl"
               >
                 <Search className="w-3.5 h-3.5 text-indigo-electric" /> Launch LinkedIn X-Ray Intelligence
               </button>
@@ -507,7 +506,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
           <div className="w-80 space-y-4">
              <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] backdrop-blur-md">
-                <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mb-4 flex items-center gap-2">
+                <h5 className="text-base font-bold uppercase tracking-[0.2em] text-white/40 mb-4 flex items-center gap-2">
                    <Target className="w-3.5 h-3.5" /> High-Intensity Syntax
                 </h5>
                 <ul className="space-y-3">
@@ -517,7 +516,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                     '("Solidity" OR "Web3") AND "EVM"'
                   ].map((s, i) => (
                     <li key={i} className="group/item pb-2 border-b border-white/5 flex items-center justify-between">
-                       <span className="text-[10px] font-mono text-indigo-200/60 truncate w-48">{s}</span>
+                       <span className="text-base font-mono text-indigo-200/60 truncate w-48">{s}</span>
                        <button 
                         onClick={() => setBooleanQuery(s)}
                         className="p-1.5 bg-white/5 rounded-lg opacity-0 group-hover/item:opacity-100 group-hover/item:bg-indigo-electric transition-all"
@@ -539,34 +538,34 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
           { label: 'Avg Match Score', value: '94%', icon: TrendingUp, color: 'text-emerald-600' },
           { label: 'Sync Status', value: 'Live & Secure', icon: Zap, color: 'text-amber-500' }
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-midnight/5 shadow-sm flex items-center gap-6">
+          <div key={i} className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm flex items-center gap-6">
             <div className={cn("w-14 h-14 rounded-2xl bg-warm-gray/30 flex items-center justify-center", stat.color)}>
               <stat.icon className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-midnight/30">{stat.label}</p>
-              <h4 className="text-2xl font-serif font-bold italic text-midnight">{stat.value}</h4>
+              <p className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">{stat.label}</p>
+              <h4 className="text-2xl font-serif font-bold italic text-[#0f172a]">{stat.value}</h4>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-[3.5rem] border border-midnight/5 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-8 border-b border-midnight/5 bg-warm-gray/10 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="bg-white rounded-[3.5rem] border border-slate-300/5 shadow-sm overflow-hidden flex flex-col">
+        <div className="p-8 border-b border-slate-300/5 bg-warm-gray/10 flex flex-col md:flex-row justify-between items-center gap-6">
            <div className="relative flex-1 max-w-xl">
-             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-midnight/20" />
+             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0f172a]/20" />
              <input 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
                placeholder="Search internal database by name, title, or skills..."
-               className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-midnight/5 outline-none focus:border-indigo-electric/40 text-sm font-medium"
+               className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl border border-slate-300/5 outline-none focus:border-indigo-electric/40 text-base font-medium"
              />
            </div>
            <div className="flex gap-4 self-stretch md:self-auto">
-             <button className="px-6 py-3 bg-white border border-midnight/5 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all flex items-center gap-2">
+             <button className="px-6 py-3 bg-white border border-slate-300/5 rounded-2xl text-base font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all flex items-center gap-2">
                <Filter className="w-3.5 h-3.5" /> Advance Filters
              </button>
-             <button className="px-6 py-3 bg-white border border-midnight/5 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all flex items-center gap-2 text-indigo-600">
+             <button className="px-6 py-3 bg-white border border-slate-300/5 rounded-2xl text-base font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all flex items-center gap-2 text-indigo-600">
                <Download className="w-3.5 h-3.5" /> Export Data
              </button>
            </div>
@@ -575,12 +574,12 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-midnight/5 bg-warm-gray/5">
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Candidate</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Target Role</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Experience</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30">Location</th>
-                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-midnight/30 text-right">Actions</th>
+              <tr className="border-b border-slate-300/5 bg-warm-gray/5">
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Candidate</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Target Role</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Experience</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Location</th>
+                <th className="px-8 py-5 text-base font-bold uppercase tracking-widest text-[#0f172a]/30 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-midnight/5">
@@ -598,17 +597,17 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                         {c.name[0]}
                       </div>
                       <div>
-                        <h5 className="font-serif font-bold text-midnight italic group-hover:text-indigo-electric transition-colors">{c.name}</h5>
-                        <p className="text-[9px] text-midnight/30 font-bold uppercase tracking-widest mt-1">ID: {c.id.slice(0, 8)}</p>
+                        <h5 className="font-serif font-bold text-[#0f172a] italic group-hover:text-indigo-electric transition-colors">{c.name}</h5>
+                        <p className="text-base text-[#0f172a]/30 font-bold uppercase tracking-widest mt-1">ID: {c.id.slice(0, 8)}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <div className="space-y-1">
-                      <p className="text-xs font-bold text-midnight">{c.title}</p>
+                      <p className="text-base font-bold text-[#0f172a]">{c.title}</p>
                       <div className="flex gap-1.5">
                         {c.keywords?.slice(0, 3).map((k: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 bg-indigo-electric/5 text-indigo-electric text-[8px] font-bold rounded uppercase">
+                          <span key={i} className="px-2 py-0.5 bg-indigo-electric/5 text-indigo-electric text-base font-bold rounded uppercase">
                             {k}
                           </span>
                         ))}
@@ -616,12 +615,12 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="text-xs font-bold text-midnight uppercase">{c.experience} Years</div>
-                    <div className="text-[9px] text-midnight/30 font-bold uppercase tracking-widest">Post-Grad</div>
+                    <div className="text-base font-bold text-[#0f172a] uppercase">{c.experience} Years</div>
+                    <div className="text-base text-[#0f172a]/30 font-bold uppercase tracking-widest">Post-Grad</div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center gap-2 text-xs font-medium text-midnight/60">
-                      <MapPin className="w-3.5 h-3.5 text-midnight/20" />
+                    <div className="flex items-center gap-2 text-base font-medium text-[#0f172a]/60">
+                      <MapPin className="w-3.5 h-3.5 text-[#0f172a]/20" />
                       {c.location}
                     </div>
                   </td>
@@ -629,7 +628,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                     <div className="flex justify-end gap-3">
                        <button 
                         onClick={() => onReverseMarket(c)}
-                        className="px-4 py-2 bg-indigo-electric text-white rounded-xl text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-midnight transition-all shadow-lg shadow-indigo-500/10"
+                        className="px-4 py-2 bg-indigo-electric text-white rounded-xl text-base font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#1e293b] transition-all shadow-lg shadow-indigo-500/10"
                        >
                          <TrendingUp className="w-3.5 h-3.5" /> Market IQ
                        </button>
@@ -637,10 +636,10 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                         onClick={() => setPreviewCandidate(c)}
                         className="p-2 bg-warm-gray rounded-xl hover:bg-neutral-200 transition-all"
                        >
-                         <Eye className="w-5 h-5 text-midnight/40" />
+                         <Eye className="w-5 h-5 text-[#0f172a]/40" />
                        </button>
                        <button className="p-2 bg-warm-gray rounded-xl hover:bg-neutral-200 transition-all">
-                         <MoreHorizontal className="w-5 h-5 text-midnight/40" />
+                         <MoreHorizontal className="w-5 h-5 text-[#0f172a]/40" />
                        </button>
                     </div>
                   </td>
@@ -658,7 +657,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-midnight/80 backdrop-blur-md z-[110] flex items-center justify-center p-6"
+            className="fixed inset-0 bg-[#1e293b]/80 backdrop-blur-md z-[110] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, y: 20 }}
@@ -675,29 +674,29 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
               </button>
 
               <div className="mb-8">
-                <h3 className="text-3xl font-serif font-bold italic text-midnight">Mission Ingress</h3>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-midnight/30 mt-2">Add a permanent asset to the global talent cloud</p>
+                <h3 className="text-3xl font-serif font-bold italic text-[#0f172a]">Mission Ingress</h3>
+                <p className="text-base font-bold uppercase tracking-[0.2em] text-[#0f172a]/30 mt-2">Add a permanent asset to the global talent cloud</p>
               </div>
 
               <form onSubmit={handleManualAdd} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Full Name</label>
+                    <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Full Name</label>
                     <input 
                       required
                       value={newCandidate.name}
                       onChange={e => setNewCandidate({...newCandidate, name: e.target.value})}
-                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
                       placeholder="e.g. Satoshi Nakamoto"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Current Title</label>
+                    <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Current Title</label>
                     <input 
                       required
                       value={newCandidate.title}
                       onChange={e => setNewCandidate({...newCandidate, title: e.target.value})}
-                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
                       placeholder="e.g. Lead Blockchain Eng"
                     />
                   </div>
@@ -705,42 +704,42 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Location</label>
+                    <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Location</label>
                     <input 
                       value={newCandidate.location}
                       onChange={e => setNewCandidate({...newCandidate, location: e.target.value})}
-                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
                       placeholder="e.g. Tokyo, JP"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Years Experience</label>
+                    <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Years Experience</label>
                     <input 
                       type="number"
                       value={newCandidate.experience}
                       onChange={e => setNewCandidate({...newCandidate, experience: Number(e.target.value)})}
-                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                      className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Primary Email</label>
+                  <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Primary Email</label>
                   <input 
                     type="email"
                     value={newCandidate.email}
                     onChange={e => setNewCandidate({...newCandidate, email: e.target.value})}
-                    className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-bold transition-all"
+                    className="w-full px-5 py-3.5 bg-warm-gray/50 rounded-2xl border border-transparent focus:border-indigo-electric/20 outline-none text-base font-bold transition-all"
                     placeholder="satoshi@bitcoin.org"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-midnight/40 ml-1">Key Tags (Comma separated)</label>
+                  <label className="text-base font-black uppercase tracking-widest text-[#0f172a]/40 ml-1">Key Tags (Comma separated)</label>
                   <textarea 
                     value={newCandidate.skills}
                     onChange={e => setNewCandidate({...newCandidate, skills: e.target.value})}
-                    className="w-full h-24 px-5 py-3.5 bg-warm-gray/50 rounded-[2rem] border border-transparent focus:border-indigo-electric/20 outline-none text-sm font-medium transition-all resize-none"
+                    className="w-full h-24 px-5 py-3.5 bg-warm-gray/50 rounded-[2rem] border border-transparent focus:border-indigo-electric/20 outline-none text-base font-medium transition-all resize-none"
                     placeholder="Go, Rust, Distributed Systems, Cryptography"
                   />
                 </div>
@@ -748,7 +747,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                 <button 
                   type="submit"
                   disabled={isSyncing}
-                  className="w-full py-5 bg-midnight text-white rounded-[2rem] font-bold text-xs uppercase tracking-[0.2em] shadow-2xl shadow-midnight/20 hover:bg-indigo-electric transition-all flex items-center justify-center gap-3"
+                  className="w-full py-5 bg-[#1e293b] text-white rounded-[2rem] font-bold text-base uppercase tracking-[0.2em] shadow-2xl shadow-midnight/20 hover:bg-indigo-electric transition-all flex items-center justify-center gap-3"
                 >
                   {isSyncing ? <Zap className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5 text-coral" />}
                   Finalize Mission Ingress
@@ -766,12 +765,12 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-midnight/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
+            className="fixed inset-0 bg-[#1e293b]/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
           >
             <motion.div 
                initial={{ scale: 0.95, y: 20 }}
                animate={{ scale: 1, y: 0 }}
-               className="bg-white w-full max-w-2xl rounded-[3rem] p-12 shadow-2xl relative overflow-y-auto max-h-[90vh]"
+               className="bg-white w-full max-w-2xl rounded-3xl p-12 shadow-2xl relative overflow-y-auto max-h-[90vh]"
             >
               <button 
                 onClick={() => {
@@ -784,61 +783,61 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
               </button>
 
               <div className="flex flex-col items-center text-center space-y-6 mb-12">
-                 <div className="w-24 h-24 bg-midnight text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30">
+                 <div className="w-24 h-24 bg-[#1e293b] text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30">
                    {previewCandidate.name[0]}
                  </div>
                  <div>
-                   <h3 className="text-4xl font-serif font-bold italic text-midnight">{previewCandidate.name}</h3>
-                   <p className="text-xl font-medium text-midnight/40 italic">{previewCandidate.title}</p>
+                   <h3 className="text-4xl font-serif font-bold italic text-[#0f172a]">{previewCandidate.name}</h3>
+                   <p className="text-xl font-medium text-[#0f172a]/40 italic">{previewCandidate.title}</p>
                  </div>
                  <div className="flex gap-4">
-                   <button className="px-6 py-2 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-bold uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
+                   <button className="px-6 py-2 bg-emerald-50 text-emerald-600 rounded-full text-base font-bold uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
                      <CheckCircle2 className="w-3.5 h-3.5" /> High Engagement Prob.
                    </button>
-                   <button className="px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-bold uppercase tracking-widest border border-indigo-100">
+                   <button className="px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-base font-bold uppercase tracking-widest border border-indigo-100">
                      Active in Market
                    </button>
                  </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 border-y border-midnight/5 py-10">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 border-y border-slate-300/5 py-10">
                  <div className="space-y-1">
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-1.5"><Briefcase className="w-3 h-3" /> Experience</span>
-                   <p className="text-sm font-bold text-midnight">{previewCandidate.experience} Years</p>
+                   <span className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-1.5"><Briefcase className="w-3 h-3" /> Experience</span>
+                   <p className="text-base font-bold text-[#0f172a]">{previewCandidate.experience} Years</p>
                  </div>
                  <div className="space-y-1">
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-1.5"><MapPin className="w-3 h-3" /> Location</span>
-                   <p className="text-sm font-bold text-midnight">{previewCandidate.location}</p>
+                   <span className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-1.5"><MapPin className="w-3 h-3" /> Location</span>
+                   <p className="text-base font-bold text-[#0f172a]">{previewCandidate.location}</p>
                  </div>
                  <div className="space-y-1">
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-1.5"><GraduationCap className="w-3 h-3" /> Grad Year</span>
-                   <p className="text-sm font-bold text-midnight">{previewCandidate.gradYear || '---'}</p>
+                   <span className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-1.5"><GraduationCap className="w-3 h-3" /> Grad Year</span>
+                   <p className="text-base font-bold text-[#0f172a]">{previewCandidate.gradYear || '---'}</p>
                  </div>
                  <div className="space-y-1">
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-1.5"><Terminal className="w-3 h-3" /> Data Freshness</span>
-                   <p className="text-sm font-bold text-emerald-600">Updated Today</p>
+                   <span className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-1.5"><Terminal className="w-3 h-3" /> Data Freshness</span>
+                   <p className="text-base font-bold text-emerald-600">Updated Today</p>
                  </div>
               </div>
 
               <div className="space-y-8 mb-12">
                  <div className="space-y-3">
-                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-2">
+                    <h5 className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-2">
                        <Zap className="w-4 h-4 text-amber-500" /> AI Semantic Analysis
                     </h5>
-                    <div className="bg-warm-gray/40 p-8 rounded-[2rem] border border-midnight/5">
-                       <p className="text-sm text-midnight/70 font-medium leading-relaxed italic">
+                    <div className="bg-warm-gray/40 p-8 rounded-[2rem] border border-slate-300/5">
+                       <p className="text-base text-[#0f172a]/70 font-medium leading-relaxed italic">
                           "{previewCandidate.resumeSnippet}"
                        </p>
                     </div>
                  </div>
 
                  <div className="space-y-3">
-                   <h5 className="text-[10px] font-bold uppercase tracking-widest text-midnight/20 flex items-center gap-2">
+                   <h5 className="text-base font-bold uppercase tracking-widest text-[#0f172a]/20 flex items-center gap-2">
                        <Users className="w-4 h-4 text-indigo-400" /> Professional DNA
                     </h5>
                     <div className="flex flex-wrap gap-2">
                        {previewCandidate.keywords?.map((k: string, i: number) => (
-                         <span key={i} className="px-5 py-2 bg-white border border-midnight/5 rounded-xl text-[10px] font-bold text-midnight/60">
+                         <span key={i} className="px-5 py-2 bg-white border border-slate-300/5 rounded-xl text-base font-bold text-[#0f172a]/60">
                            {k}
                          </span>
                        ))}
@@ -849,11 +848,11 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
               <div className="flex gap-4">
                  <button 
                   onClick={() => onReverseMarket(previewCandidate)}
-                  className="flex-1 py-5 bg-indigo-electric text-white rounded-[2rem] font-bold text-xs uppercase tracking-widest hover:bg-midnight transition-all flex items-center justify-center gap-3 shadow-2xl shadow-indigo-500/20"
+                  className="flex-1 py-5 bg-indigo-electric text-white rounded-[2rem] font-bold text-base uppercase tracking-widest hover:bg-[#1e293b] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-indigo-500/20"
                  >
                    <TrendingUp className="w-4 h-4" /> Reverse Market Resume
                  </button>
-                 <button className="flex-1 py-5 bg-midnight text-white rounded-[2rem] font-bold text-xs uppercase tracking-widest hover:bg-coral transition-all">
+                 <button className="flex-1 py-5 bg-[#1e293b] text-white rounded-[2rem] font-bold text-base uppercase tracking-widest hover:bg-coral transition-all">
                    Contact & Engage
                  </button>
               </div>

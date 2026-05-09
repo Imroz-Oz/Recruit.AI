@@ -109,6 +109,35 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
   const [jobUrl, setJobUrl] = useState('');
   const [portalAnalysis, setPortalAnalysis] = useState<any | null>(null);
 
+  const [jdInputText, setJdInputText] = useState('');
+  const [isParsingJd, setIsParsingJd] = useState(false);
+
+  const handleParseJd = async () => {
+    if (!jdInputText.trim()) return;
+    setIsParsingJd(true);
+    try {
+      const { extractJobDetailsFromText } = await import('../services/aiService');
+      const details = await extractJobDetailsFromText(jdInputText);
+      
+      const queryParts = [];
+      if (details.title) queryParts.push(details.title);
+      if (details.company && details.company !== 'Unknown') queryParts.push(details.company);
+      if (details.skills && details.skills.length > 0) queryParts.push(details.skills.join(' '));
+      
+      setSearchQuery(queryParts.join(' '));
+      
+      if (details.type && ['FTE', 'Contract', 'C2H'].includes(details.type)) {
+        setFilterType(details.type);
+      }
+      setShowAdvanced(true);
+      // Ensure UI has finished transition before trying to set location which is in advanced panel
+    } catch (error) {
+      console.error("Failed to parse JD:", error);
+    } finally {
+      setIsParsingJd(false);
+    }
+  };
+
   const handlePortalMatch = async () => {
     if (!jobUrl.trim() || !preSearchCandidate) {
       if (!preSearchCandidate) alert("Please select a candidate from Library/Vault to perform Reverse Market Match.");
@@ -304,6 +333,27 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
       {/* Search & Filters */}
       <div className="space-y-4">
+        {/* JD Analyzer for Candidate Search */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-300/5 shadow-sm space-y-4 relative w-full mb-8">
+            <label className="text-base font-bold uppercase tracking-[0.2em] text-[#0f172a]/30 ml-1">Paste Job Description to Auto-Fill Search</label>
+            <div className="relative">
+              <textarea 
+                value={jdInputText}
+                onChange={(e) => setJdInputText(e.target.value)}
+                placeholder="Paste your target job description here..."
+                className="w-full h-24 p-5 bg-warm-gray/50 rounded-2xl outline-none font-medium text-base resize-none"
+              />
+              <button 
+                onClick={handleParseJd}
+                disabled={isParsingJd}
+                className="absolute right-4 bottom-4 p-3 bg-indigo-electric text-white rounded-xl shadow-lg hover:bg-[#0f172a] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isParsingJd ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span className="text-sm font-bold uppercase tracking-widest hidden md:inline">Extract & Fill Filters</span>
+              </button>
+            </div>
+        </div>
+
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1 group">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/20 group-focus-within:text-emerald-600 transition-colors" />

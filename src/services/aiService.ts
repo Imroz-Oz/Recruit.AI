@@ -309,6 +309,7 @@ export async function generateLinkedInOptimizations(targetRole: string, targetCo
       Also, generate exactly 6 highly realistic hypothetical connection profiles of people currently working in this role.
       Return the response as a JSON object with this exact structure:
       {
+        "topSkills": ["string", "string", "string"],
         "headlineSuggestions": ["string", "string", "string"],
         "summaryTwist": "string (a strategic paragraph on how to tweak the about section)",
         "connectionStrategy": "string (tactics on how to leverage 2nd-degree connections or alumni at the company)",

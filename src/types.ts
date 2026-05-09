@@ -68,6 +68,7 @@ export interface User {
   skills?: string[];
   yearsOfExperience?: string;
   headshotUrl?: string;
+  backgroundUrl?: string;
   organizationId?: string;
   userLevel?: UserLevel;
   userPlan?: 'free' | 'pro' | 'enterprise';
@@ -196,6 +197,7 @@ export interface Task {
   title: string;
   description: string;
   status: 'todo' | 'in-progress' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
   assigneeId: string;
   assigneeName?: string;
   createdBy: string;

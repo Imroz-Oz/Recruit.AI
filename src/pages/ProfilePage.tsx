@@ -48,7 +48,9 @@ export default function ProfilePage({ user: initialUser, onUpdateUser, onNavigat
     skills: user.skills ? user.skills.join(', ') : '',
     industryTypes: user.industryTypes || [] as IndustryType[],
     engagementTypes: user.engagementTypes || [] as EngagementType[],
-    taxTypes: user.taxTypes || [] as TaxType[]
+    taxTypes: user.taxTypes || [] as TaxType[],
+    headshotUrl: user.headshotUrl || '',
+    backgroundUrl: user.backgroundUrl || ''
   });
 
   useEffect(() => {
@@ -212,7 +214,9 @@ export default function ProfilePage({ user: initialUser, onUpdateUser, onNavigat
         skills: editForm.skills.split(',').map(s => s.trim()).filter(s => s !== ''),
         industryTypes: editForm.industryTypes,
         engagementTypes: editForm.engagementTypes,
-        taxTypes: editForm.taxTypes
+        taxTypes: editForm.taxTypes,
+        headshotUrl: editForm.headshotUrl,
+        backgroundUrl: editForm.backgroundUrl
       };
       
       try {
@@ -270,10 +274,22 @@ export default function ProfilePage({ user: initialUser, onUpdateUser, onNavigat
             
             {isEditing ? (
                <div className="space-y-4">
-                 <div className="w-24 h-24 bg-[#1e293b] text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30 mx-auto transition-transform group-hover:scale-105">
-                  {editForm.name[0] || '?'}
+                 <div className="w-24 h-24 bg-[#1e293b] text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30 mx-auto transition-transform group-hover:scale-105 overflow-hidden">
+                  {editForm.headshotUrl ? <img src={editForm.headshotUrl} alt="headshot" className="w-full h-full object-cover" /> : (editForm.name[0] || '?')}
                 </div>
                 <div className="space-y-3">
+                  <input 
+                    value={editForm.headshotUrl}
+                    onChange={(e) => setEditForm({...editForm, headshotUrl: e.target.value})}
+                    placeholder="Profile Picture URL"
+                    className="w-full p-3 bg-warm-gray rounded-xl text-base font-bold text-center outline-none focus:bg-white focus:border-indigo-electric/20 transition-all text-xs"
+                  />
+                  <input 
+                    value={editForm.backgroundUrl}
+                    onChange={(e) => setEditForm({...editForm, backgroundUrl: e.target.value})}
+                    placeholder="App Background URL"
+                    className="w-full p-3 bg-warm-gray rounded-xl text-base font-bold text-center outline-none focus:bg-white focus:border-indigo-electric/20 transition-all text-xs"
+                  />
                   <input 
                     value={editForm.name}
                     onChange={(e) => setEditForm({...editForm, name: e.target.value})}
@@ -290,8 +306,8 @@ export default function ProfilePage({ user: initialUser, onUpdateUser, onNavigat
                </div>
             ) : (
               <>
-                <div className="w-24 h-24 bg-[#1e293b] text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30 mx-auto transition-transform group-hover:scale-105">
-                  {user.name?.[0] || user.email[0].toUpperCase()}
+                <div className="w-24 h-24 bg-[#1e293b] text-white rounded-3xl flex items-center justify-center font-serif font-bold text-4xl italic shadow-2xl shadow-midnight/30 mx-auto transition-transform group-hover:scale-105 overflow-hidden">
+                  {user.headshotUrl ? <img src={user.headshotUrl} alt="headshot" className="w-full h-full object-cover" /> : (user.name?.[0] || user.email[0].toUpperCase())}
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-2xl font-serif font-bold italic text-[#0f172a]">{user.name || 'Anonymous User'}</h3>

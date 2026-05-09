@@ -264,14 +264,15 @@ export default function App() {
     
     const userData: User = {
       id: linkedinProfile?.id || `demo-${Date.now()}`,
-      uid: linkedinProfile?.id || `demo-${Date.now()}`,
+      uid: linkedinProfile?.id || auth.currentUser?.uid || `demo-${Date.now()}`,
       email: email,
-      name: linkedinProfile?.name || email.split('@')[0] || 'User',
+      name: linkedinProfile?.localizedFirstName ? `${linkedinProfile.localizedFirstName} ${linkedinProfile.localizedLastName}` : (linkedinProfile?.name || email.split('@')[0] || 'User'),
       isLoggedIn: true,
       role: role as 'corp' | 'candidate',
       isCompanyUser: (role === 'corp'),
       onboardingCompleted: true, // Mark as completed for LinkedIn users to jump straight in
-      selectedMode: isCompany ? 'recruiter' : 'hunter'
+      selectedMode: isCompany ? 'recruiter' : 'hunter',
+      headshotUrl: linkedinProfile?.profilePicture?.displayImage || linkedinProfile?.picture || auth.currentUser?.photoURL || undefined
     };
 
     setUser(userData);
@@ -401,12 +402,15 @@ export default function App() {
       localStorage.setItem('isLinkedInConnected', 'true');
       
       if (user) {
-        const updatedUser = { ...user, linkedInConnected: true };
+        const mockHeadshotUrl = auth.currentUser?.photoURL || undefined;
+        const updatedUser = { ...user, linkedInConnected: true, headshotUrl: mockHeadshotUrl };
         setUser(updatedUser);
         
         if (auth.currentUser) {
           try {
-            await setDoc(doc(db, 'users', auth.currentUser.uid), { linkedInConnected: true }, { merge: true });
+            const updates: any = { linkedInConnected: true };
+            if (mockHeadshotUrl) updates.headshotUrl = mockHeadshotUrl;
+            await setDoc(doc(db, 'users', auth.currentUser.uid), updates, { merge: true });
           } catch (err) {
             console.error('LinkedIn state update error:', err);
           }
@@ -506,7 +510,7 @@ export default function App() {
       case 'assistant':
         return <AssistantPage appMode={user.selectedMode || 'recruiter'} />;
       case 'linkedin-intelligence':
-        return <LinkedInIntelligencePage isConnected={isLinkedInConnected} onConnect={handleConnectLinkedIn} />;
+        return <LinkedInIntelligencePage isConnected={isLinkedInConnected} onConnect={handleConnectLinkedIn} myProfile={user} />;
       case 'message-buddy':
         return <MessageBuddyPage userLevel={user.userLevel || 'member'} userPlan={user.userPlan || 'free'} myProfile={user} />;
       case 'admin':
@@ -539,10 +543,16 @@ export default function App() {
   };
 
   return (
-    <div className={cn(
-      "flex min-h-screen selection:bg-violet/30 transition-colors duration-700",
-      user.userLevel === 'universal' ? 'bg-amber-50/50' : user.selectedMode === 'recruiter' ? 'bg-indigo-50/30' : 'bg-rose-50/20'
-    )}>
+    <div 
+      className={cn(
+        "flex min-h-screen selection:bg-violet/30 transition-colors duration-700 bg-cover bg-center bg-no-repeat bg-fixed relative",
+        !user.backgroundUrl && (user.userLevel === 'universal' ? 'bg-amber-50/50' : user.selectedMode === 'recruiter' ? 'bg-indigo-50/30' : 'bg-rose-50/20')
+      )}
+      style={{
+        backgroundImage: user.backgroundUrl ? `url(${user.backgroundUrl})` : `url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')`, // A premium abstract cartoon-like/royal visual or superhero abstract style if default.
+      }}
+    >
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] pointer-events-none" /> {/* Overlay to make sure text is readable */}
       <Sidebar 
         currentPage={currentPage} 
         setCurrentPage={navigateTo} 

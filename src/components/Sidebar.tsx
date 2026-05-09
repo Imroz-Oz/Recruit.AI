@@ -289,7 +289,7 @@ export default function Sidebar({
                  )} />
                </div>
                <button 
-                 onClick={onConnectLinkedIn}
+                 onClick={() => setCurrentPage('linkedin-intelligence')}
                  className={cn(
                    "w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors",
                    isLinkedInConnected 
@@ -302,7 +302,7 @@ export default function Sidebar({
             </div>
           ) : (
             <button 
-               onClick={onConnectLinkedIn}
+               onClick={() => setCurrentPage('linkedin-intelligence')}
                title="LinkedIn Integration"
                className={cn(
                  "w-full flex items-center justify-center p-3 rounded-xl border transition-all",

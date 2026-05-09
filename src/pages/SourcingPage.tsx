@@ -26,6 +26,21 @@ export default function SourcingPage({ isLinkedInConnected, onConnectLinkedIn }:
         </div>
       </header>
 
+      {!isLinkedInConnected && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-blue-900">Unlock Advanced AI Sourcing</h3>
+            <p className="text-blue-700 text-sm font-medium">Connect your LinkedIn account to enable deep market matching and automated Boolean queries tailored to your network.</p>
+          </div>
+          <button 
+            onClick={onConnectLinkedIn}
+            className="px-6 py-3 bg-[#0077b5] text-white rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-[#005582] transition-colors whitespace-nowrap"
+          >
+            Connect LinkedIn
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-12">
         <CandidateSearch 
           onMatchesFound={setMatches} 

@@ -15,13 +15,16 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'todo' | 'in-progress' | 'completed'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortByPriority, setSortByPriority] = useState(false);
   
   const [isAdding, setIsAdding] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '',
     description: '',
     status: 'todo',
+    priority: 'medium',
     assigneeId: '',
     dueDate: '',
   });
@@ -73,6 +76,7 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
         title: newTask.title,
         description: newTask.description || '',
         status: newTask.status as 'todo' | 'in-progress' | 'completed',
+        priority: newTask.priority as 'low' | 'medium' | 'high',
         assigneeId: newTask.assigneeId,
         assigneeName: selectedUser?.name || selectedUser?.email || '',
         createdBy: auth.currentUser.uid,
@@ -84,7 +88,7 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
       await setDoc(doc(db, 'tasks', taskId), taskData);
       
       setIsAdding(false);
-      setNewTask({ title: '', description: '', status: 'todo', assigneeId: '', dueDate: '' });
+      setNewTask({ title: '', description: '', status: 'todo', priority: 'medium', assigneeId: '', dueDate: '' });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'tasks');
     } finally {
@@ -111,9 +115,15 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
 
   const filteredTasks = tasks.filter(t => {
     if (filter !== 'all' && t.status !== filter) return false;
+    if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase()) && !t.assigneeName?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  if (sortByPriority) {
+    const priorityWeight = { high: 3, medium: 2, low: 1, undefined: 0 };
+    filteredTasks.sort((a, b) => priorityWeight[b.priority || 'medium'] - priorityWeight[a.priority || 'medium']);
+  }
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -162,6 +172,18 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
                />
             </div>
             <div>
+               <label className="block text-xs font-bold uppercase tracking-widest text-[#0f172a]/40 mb-2">Priority</label>
+               <select 
+                 value={newTask.priority} 
+                 onChange={e => setNewTask({...newTask, priority: e.target.value as 'low' | 'medium' | 'high'})} 
+                 className="w-full bg-slate-50 border border-slate-200 outline-none p-4 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500/20 appearance-none"
+               >
+                 <option value="low">Low</option>
+                 <option value="medium">Medium</option>
+                 <option value="high">High</option>
+               </select>
+            </div>
+            <div>
                <label className="block text-xs font-bold uppercase tracking-widest text-[#0f172a]/40 mb-2">Assign To</label>
                <select 
                  value={newTask.assigneeId} 
@@ -186,7 +208,7 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
           </div>
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
              <button 
-               onClick={() => { setIsAdding(false); setNewTask({ title: '', description: '', status: 'todo', assigneeId: '', dueDate: '' }); }}
+               onClick={() => { setIsAdding(false); setNewTask({ title: '', description: '', status: 'todo', priority: 'medium', assigneeId: '', dueDate: '' }); }}
                className="px-6 py-3 font-bold text-[#0f172a]/40 hover:text-[#0f172a]/70 transition-colors uppercase tracking-widest text-sm"
              >
                Cancel
@@ -202,12 +224,34 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
         </motion.div>
       )}
 
-      <div className="flex flex-col md:flex-row gap-4 justify-between">
-         <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1 w-max">
-           <button onClick={() => setFilter('all')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'all' ? 'bg-[#0f172a] text-white' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>All</button>
-           <button onClick={() => setFilter('todo')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'todo' ? 'bg-indigo-100 text-indigo-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>To Do</button>
-           <button onClick={() => setFilter('in-progress')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'in-progress' ? 'bg-amber-100 text-amber-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>In Progress</button>
-           <button onClick={() => setFilter('completed')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>Completed</button>
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+         <div className="flex flex-wrap items-center gap-4">
+           <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1 w-max">
+             <button onClick={() => setFilter('all')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'all' ? 'bg-[#0f172a] text-white' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>All</button>
+             <button onClick={() => setFilter('todo')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'todo' ? 'bg-indigo-100 text-indigo-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>To Do</button>
+             <button onClick={() => setFilter('in-progress')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'in-progress' ? 'bg-amber-100 text-amber-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>In Progress</button>
+             <button onClick={() => setFilter('completed')} className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors ${filter === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'text-[#0f172a]/50 hover:bg-slate-50'}`}>Completed</button>
+           </div>
+           
+           <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1 w-max">
+             <select 
+                value={priorityFilter} 
+                onChange={(e) => setPriorityFilter(e.target.value as any)}
+                className="px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg outline-none bg-transparent text-[#0f172a]/70 cursor-pointer"
+             >
+                <option value="all">All Priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+             </select>
+           </div>
+           
+           <button 
+             onClick={() => setSortByPriority(!sortByPriority)}
+             className={`px-4 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border transition-colors ${sortByPriority ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-[#0f172a]/50 hover:bg-slate-50'}`}
+           >
+             Sort by Priority
+           </button>
          </div>
          <div className="relative w-full md:w-72">
            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0f172a]/30" />
@@ -247,6 +291,15 @@ export default function TasksPage({ userLevel }: TasksPageProps) {
                     {task.status === 'in-progress' && <Clock className="w-5 h-5 text-amber-500 cursor-pointer hover:text-amber-600 transition-colors" onClick={() => handleUpdateStatus(task.id, 'completed')} />}
                     {task.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500 cursor-pointer hover:text-emerald-600 transition-colors" onClick={() => handleUpdateStatus(task.id, 'todo')} />}
                     <h3 className={`text-lg font-bold ${task.status === 'completed' ? 'line-through text-[#0f172a]/40' : 'text-[#0f172a]'}`}>{task.title}</h3>
+                     {task.priority && (
+                       <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ml-2 ${
+                         task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                         task.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
+                         'bg-sky-100 text-sky-700'
+                       }`}>
+                         {task.priority}
+                       </span>
+                     )}
                  </div>
                  {task.description && (
                    <p className="text-[#0f172a]/60 pl-8 text-sm mb-3 line-clamp-2 max-w-3xl">{task.description}</p>

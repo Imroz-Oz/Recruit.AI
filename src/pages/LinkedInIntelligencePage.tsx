@@ -18,20 +18,21 @@ import {
   BarChart3
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { generateLinkedInOptimizations } from '@/src/services/aiService';
 
 import OutreachGenerator from '@/src/components/OutreachGenerator';
 
 // ... other imports
 
-export default function LinkedInIntelligencePage({ isConnected, onConnect }: { isConnected: boolean; onConnect: () => void }) {
-  const [userProfile, setUserProfile] = useState<any>(null);
+export default function LinkedInIntelligencePage({ isConnected, onConnect, myProfile }: { isConnected: boolean; onConnect: () => void; myProfile?: any }) {
+  const [userProfile, setUserProfile] = useState<any>(myProfile || null);
   const [targetGoal, setTargetGoal] = useState('');
   const [targetCompany, setTargetCompany] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRoadmapActive, setIsRoadmapActive] = useState(false);
   const [strategy, setStrategy] = useState<{
+    topSkills?: string[];
     headlineSuggestions: string[];
     summaryTwist: string;
     connectionStrategy: string;
@@ -50,19 +51,23 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect }: { i
   } | null>(null);
   
   useEffect(() => {
-    const fetchUser = async () => {
-      if (auth.currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data());
+    if (myProfile) {
+      setUserProfile(myProfile);
+    } else {
+      const fetchUser = async () => {
+        if (auth.currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data());
+          }
         }
-      }
-    };
-    fetchUser();
-  }, []);
+      };
+      fetchUser();
+    }
+  }, [myProfile]);
   
   const [isGlowingUp, setIsGlowingUp] = useState(false);
-  const [profilePic, setProfilePic] = useState('https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=256&h=256');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Mock Stats - In a real app, these would come from the LinkedIn API or a cached sync
   const stats = [
@@ -71,6 +76,30 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect }: { i
     { label: 'Profile Views (7d)', value: '842', icon: Eye, color: 'text-green-500' },
     { label: 'Search Appearances', value: '156', icon: Search, color: 'text-indigo-500' },
   ];
+
+  const handleSyncProfile = async () => {
+    setIsSyncing(true);
+    setTimeout(async () => {
+      try {
+        const syncedData = {
+          headshotUrl: userProfile?.headshotUrl || auth.currentUser?.photoURL || "",
+          title: userProfile?.title || "Lead Solutions Architect",
+          about: userProfile?.about || "Innovative engineering leader with deep expertise in AI infrastructure and high-availability systems. Passionate about empowering teams and scaling products globally.",
+          displayName: userProfile?.displayName || userProfile?.name || auth.currentUser?.email?.split('@')[0] || "Professional User"
+        };
+        
+        setUserProfile((prev: any) => ({ ...prev, ...syncedData }));
+        
+        if (auth.currentUser) {
+          await setDoc(doc(db, 'users', auth.currentUser.uid), syncedData, { merge: true });
+        }
+      } catch (err) {
+        console.error("Sync Error", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 2000);
+  };
 
   const handleGlowUp = async () => {
     setIsGlowingUp(true);
@@ -219,12 +248,16 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect }: { i
             
             <div className="flex flex-col items-center text-center">
               <div className="relative">
-                <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-indigo-electric to-blue-600">
-                  <img 
-                    src={userProfile?.photoURL || profilePic} 
-                    alt="Profile" 
-                    className="w-full h-full rounded-full object-cover border-4 border-white"
-                  />
+                <div className="w-32 h-32 rounded-full p-1 bg-[#1e293b] text-white flex items-center justify-center font-serif font-bold text-5xl italic shadow-2xl shadow-midnight/30 mx-auto transition-transform group-hover:scale-105 overflow-hidden">
+                  {(userProfile?.headshotUrl || (auth.currentUser?.photoURL && auth.currentUser.photoURL !== '')) ? (
+                    <img 
+                      src={userProfile?.headshotUrl || auth.currentUser?.photoURL} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover rounded-full bg-white"
+                    />
+                  ) : (
+                    (userProfile?.displayName?.[0] || userProfile?.name?.[0] || auth.currentUser?.email?.[0] || '?').toUpperCase()
+                  )}
                 </div>
                 <div className="absolute bottom-1 right-1 p-2 bg-blue-600 rounded-full border-2 border-white shadow-lg">
                   <Linkedin className="w-4 h-4 text-white" />
@@ -240,16 +273,37 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect }: { i
                 </p>
               )}
 
-              <div className="flex gap-3 mt-6 w-full justify-center">
+              <div className="flex flex-col gap-3 mt-6 w-full justify-center">
                 <button 
                   onClick={handleGlowUp}
                   disabled={isGlowingUp}
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-400 to-emerald-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:from-emerald-500 hover:to-emerald-700 transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-400 to-emerald-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:from-emerald-500 hover:to-emerald-700 transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50"
                 >
                   {isGlowingUp ? <Sparkles className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {isGlowingUp ? 'Glow Up In Progress...' : 'Glow Up Profile'}
                 </button>
+                <button 
+                  onClick={handleSyncProfile}
+                  disabled={isSyncing}
+                  className="w-full py-3 bg-[#1e293b] text-white rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#0f172a] transition-all shadow-lg shadow-midnight/20 disabled:opacity-50"
+                >
+                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  {isSyncing ? 'Syncing...' : 'Sync Profile Data'}
+                </button>
               </div>
+
+              {strategy?.topSkills && (
+                 <div className="mt-6 w-full text-left">
+                   <p className="text-xs font-black text-[#0f172a]/40 uppercase tracking-[0.2em] mb-3 text-center">AI-Identified Core Identity</p>
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {strategy.topSkills.map((s, i) => (
+                       <span key={i} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider border border-indigo-100">
+                         {s}
+                       </span>
+                     ))}
+                   </div>
+                 </div>
+              )}
             </div>
 
             <div className="mt-8 pt-8 border-t border-slate-300/5 grid grid-cols-2 gap-4">

@@ -39,7 +39,7 @@ import {
   ResumeMatchResult 
 } from '@/src/services/geminiService';
 import { IndustryType } from '@/src/types';
-import { cn } from '@/src/lib/utils';
+import { cn, GOD_EMAILS } from '@/src/lib/utils';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, deleteDoc, doc, getDoc, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
@@ -166,7 +166,10 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
       dribbble: 'site:dribbble.com -inurl:jobs -inurl:hiring',
       coroflot: 'site:coroflot.com/people',
       behance: 'site:behance.net -inurl:projects -inurl:collections',
-      stackoverflow: 'site:stackoverflow.com/users'
+      stackoverflow: 'site:stackoverflow.com/users',
+      indeed: 'site:indeed.com/r/ OR site:indeed.com/resume/',
+      glassdoor: 'site:glassdoor.com/Overview',
+      dice: 'site:dice.com/resume'
     };
 
     const filter = platformOperators[platform] || platformOperators.linkedin;
@@ -238,7 +241,7 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
     const fetchRole = async () => {
       try {
         // Universal Admin Check (Hardcoded for requestor)
-        if (auth.currentUser!.email === 'king007.2311@gmail.com') {
+        if (GOD_EMAILS.includes(auth.currentUser!.email || '')) {
           setUserRole('universal');
           setUserPlan('enterprise');
           return;
@@ -452,8 +455,8 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
           suggestedTitles: [title || 'Manual Search Result'],
           roleBlueprint: {
             software: skillQuery.split(',').map(s => s.trim()),
-            skillSet: [title, industry, ...skillQuery.split(',')].filter(Boolean).slice(0, 10),
-            industry: [industry].filter(Boolean),
+            skillSet: [title, ...clientDomains, ...skillQuery.split(',')].filter(Boolean).slice(0, 10),
+            industry: clientDomains.length > 0 ? clientDomains : [],
             brief: `Manual sourcing session for ${title || 'unspecified role'} in ${geoParams.city || 'global'} location.`
           }
         });
@@ -859,26 +862,46 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
                </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 pt-6">
-               <button 
-                 onClick={() => isLinkedInConnected ? handleXRaySearch('linkedin') : onConnectLinkedIn?.()} 
-                 className={cn(
-                   "py-5 text-white rounded-2xl font-black text-base uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg",
-                   isLinkedInConnected ? "bg-[#00a36e] shadow-emerald-200" : "bg-[#0077b5] shadow-blue-200 animate-pulse"
-                 )}
-               >
-                 {isLinkedInConnected ? (
-                   <>
-                     <Search className="w-4 h-4" /> Generate LinkedIn Search
-                   </>
-                 ) : (
-                   <>
-                     <Link2 className="w-4 h-4" /> Connect LinkedIn for AI Sourcing
-                   </>
-                 )}
-               </button>
-               <button onClick={() => handleXRaySearch('all')} className="py-5 bg-[#1e293b] text-white rounded-2xl font-black text-base uppercase tracking-widest flex items-center justify-center gap-3">
-                 <Globe className="w-4 h-4" /> Global X-Ray Sweep
+            <div className="flex flex-col gap-4 pt-6">
+               <div className="grid grid-cols-2 gap-6">
+                 <button 
+                   onClick={() => isLinkedInConnected ? handleLaunchSearch('linkedin') : onConnectLinkedIn?.()} 
+                   className={cn(
+                     "py-4 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg transition-transform active:scale-[0.98]",
+                     isLinkedInConnected ? "bg-[#00a36e] shadow-emerald-200" : "bg-[#0077b5] shadow-blue-200 animate-pulse"
+                   )}
+                 >
+                   {isLinkedInConnected ? (
+                     <>
+                       <Search className="w-4 h-4" /> LinkedIn
+                     </>
+                   ) : (
+                     <>
+                       <Link2 className="w-4 h-4" /> Connect LinkedIn
+                     </>
+                   )}
+                 </button>
+                 <button onClick={() => handleLaunchSearch('github')} className="py-4 bg-[#24292e] text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg transition-transform active:scale-[0.98]">
+                   <Globe className="w-4 h-4" /> GitHub
+                 </button>
+               </div>
+               
+               <p className="text-xs font-bold text-[#0f172a]/30 uppercase tracking-[0.2em] text-center w-full mt-4 border-b border-slate-200 pb-2">Free Job Boards Integration</p>
+
+               <div className="grid grid-cols-3 gap-4">
+                 <button onClick={() => handleLaunchSearch('indeed')} className="py-4 bg-[#003A9B] text-white rounded-2xl font-bold text-sm uppercase flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.98]">
+                   Indeed
+                 </button>
+                 <button onClick={() => handleLaunchSearch('glassdoor')} className="py-4 bg-[#0CAA41] text-white rounded-2xl font-bold text-sm uppercase flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.98]">
+                   Glassdoor
+                 </button>
+                 <button onClick={() => handleLaunchSearch('dice')} className="py-4 bg-[#CC0000] text-white rounded-2xl font-bold text-sm uppercase flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.98]">
+                   Dice
+                 </button>
+               </div>
+               
+               <button onClick={() => handleLaunchSearch('all')} className="mt-4 py-4 bg-[#1e293b] text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#0f172a] transition-colors">
+                 <Globe className="w-4 h-4" /> Global Sweep
                </button>
             </div>
           </div>

@@ -32,7 +32,7 @@ import AdminPage from './pages/AdminPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import { Page, User, AppMode, SearchMode, IndustryType, EngagementType, TaxType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
-import { cn } from '@/src/lib/utils';
+import { cn, GOD_EMAILS } from '@/src/lib/utils';
 import { Bot, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
@@ -91,7 +91,9 @@ export default function App() {
       skills: data.skills,
       yearsOfExperience: data.yearsOfExperience,
       headshotUrl: data.headshotUrl,
-      name: data.name || user.name
+      name: data.name || user.name,
+      organizationName: data.organizationName,
+      organizationUrl: data.organizationUrl
     };
     setUser(updatedUser);
     
@@ -105,7 +107,9 @@ export default function App() {
           skills: data.skills,
           yearsOfExperience: data.yearsOfExperience,
           headshotUrl: data.headshotUrl,
-          name: data.name || user.name
+          name: data.name || user.name,
+          organizationName: data.organizationName || null,
+          organizationUrl: data.organizationUrl || null
         }, { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
@@ -139,7 +143,7 @@ export default function App() {
           if (userDoc.exists()) {
             const profile = userDoc.data();
             const isCompany = firebaseUser.email?.includes('@agency.com') || firebaseUser.email?.includes('@corp.com') || firebaseUser.email?.includes('.ai');
-            const isGod = ['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '');
+            const isGod = GOD_EMAILS.includes(firebaseUser.email || '');
             userData = {
               id: firebaseUser.uid,
               uid: firebaseUser.uid,
@@ -219,7 +223,7 @@ export default function App() {
               isCompanyUser: role === 'corp',
               selectedMode: selectedMode,
               onboardingCompleted: false,
-              userLevel: (['king007.2311@gmail.com', 'moimroz231997@gmail.com'].includes(firebaseUser.email || '') ? 'universal' : 'member'),
+              userLevel: (GOD_EMAILS.includes(firebaseUser.email || '') ? 'universal' : 'member'),
               userPlan: 'free'
             };
 

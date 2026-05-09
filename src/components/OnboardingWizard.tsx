@@ -21,6 +21,8 @@ export default function OnboardingWizard({ onComplete, role }: OnboardingWizardP
     name: '',
     title: '',
     domain: '',
+    organizationName: '',
+    organizationUrl: '',
     yearsOfExperience: '',
     skills: '',
     headshotUrl: '',
@@ -152,6 +154,28 @@ export default function OnboardingWizard({ onComplete, role }: OnboardingWizardP
                        className="w-full bg-white border border-slate-300/5 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-bold text-[#0f172a]"
                      />
                    </div>
+                   {role === 'recruiter' && (
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <label className="block text-xs font-bold uppercase tracking-widest text-[#0f172a]/40 mb-2">Organization Name</label>
+                         <input 
+                           placeholder="Acme Corp" 
+                           value={formData.organizationName}
+                           onChange={(e) => setFormData(prev => ({ ...prev, organizationName: e.target.value }))}
+                           className="w-full bg-white border border-slate-300/5 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-bold text-[#0f172a]"
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-bold uppercase tracking-widest text-[#0f172a]/40 mb-2">Organization URL</label>
+                         <input 
+                           placeholder="https://acme.com" 
+                           value={formData.organizationUrl}
+                           onChange={(e) => setFormData(prev => ({ ...prev, organizationUrl: e.target.value }))}
+                           className="w-full bg-white border border-slate-300/5 px-6 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-electric/5 focus:border-indigo-electric/30 font-bold text-[#0f172a]"
+                         />
+                       </div>
+                     </div>
+                   )}
                  </motion.div>
                )}
 

@@ -70,6 +70,8 @@ export interface User {
   headshotUrl?: string;
   backgroundUrl?: string;
   organizationId?: string;
+  organizationName?: string;
+  organizationUrl?: string;
   userLevel?: UserLevel;
   userPlan?: 'free' | 'pro' | 'enterprise';
   bio?: string;

@@ -131,11 +131,16 @@ export const generateBooleanFromJD = async (jd: string, previousInteractions: an
          - For Nursing (or universal professions): Focus on certificates and experience level, but DO NOT hardcode years of experience numbers.
          - NEVER use degree (e.g. Bachelor, BS) as a boolean requirement unless strictly requested.
       
+      AUTO-CORRECTION & DOUBLE-CHECKING (BUG RESOLUTION):
+      - Systematically analyze your generated strings. Ensure there are no unbalanced parentheses or trailing operators.
+      - If your string is overly broad or breaks Boolean laws, fix it immediately in the background before outputting the final versions.
+      - Self-correction is critical. The final outputs must be 100% workable.
+
       Extract specifically:
       - A primary Job Title.
       - A Location (City/State).
       - A Country.
-      - preciseQuery: strict boolean string.
+      - preciseQuery: strict boolean string (double-checked for syntax bugs).
       - broadQuery: loose boolean string dropping titles or secondary requirements.
       - skillQuery: boolean string containing only skills, NO titles.
 
@@ -153,18 +158,18 @@ export const generateBooleanFromJD = async (jd: string, previousInteractions: an
         "broadQuery": "string (The relaxed boolean string)",
         "skillQuery": "string (The skill-heavy boolean string, no titles)",
         "query": "string (The preciseQuery again, for backward compatibility)",
-        "suggestedTitles": ["title1", "title2", ...],
+        "suggestedTitles": ["title1", "title2"],
         "extractedTitle": "string",
         "extractedLocation": "string",
         "extractedCountry": "string",
         "extractedKeywords": "string (Core skills without titles)",
         "roleBlueprint": {
-          "software": ["tool1", "stack1"...],
-          "skillSet": ["skill1", "skill2"...],
-          "industry": ["vertical1"...],
+          "software": ["tool1", "stack1"],
+          "skillSet": ["skill1", "skill2"],
+          "industry": ["vertical1"],
           "brief": "recruiter summary",
-          "mustHave": ["key1", "key2"...],
-          "niceToHave": ["key1", "key2"...]
+          "mustHave": ["key1", "key2"],
+          "niceToHave": ["key1", "key2"]
         }
       }
     `,

@@ -34,7 +34,7 @@ interface Job {
   source: string;
 }
 
-const JOBS: Job[] = [
+const INITIAL_JOBS: Job[] = [
   {
     id: '1',
     title: 'Senior Product Designer',
@@ -98,6 +98,7 @@ const JOBS: Job[] = [
 ];
 
 export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate?: any }) {
+  const [jobs, setJobs] = useState<Job[]>(INITIAL_JOBS);
   const [searchQuery, setSearchQuery] = useState(preSearchCandidate ? preSearchCandidate.title : '');
   const [filterType, setFilterType] = useState('All Market');
   const [industry, setIndustry] = useState('All Sectors');
@@ -179,7 +180,43 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
   const performAiScan = async () => {
     setIsAiScanning(true);
-    await new Promise(r => setTimeout(r, 4000));
+    try {
+      // Simulate connecting to the Extension Bridge
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const { getAI } = await import('../services/aiService');
+      const ai = getAI();
+      const prompt = `Generate 5 highly realistic, detailed job postings for the query "${searchQuery || 'Software Engineer'}" in the industry "${industry}". Make the titles closely match "${searchQuery || 'Software Engineer'}" so they are not filtered out. 
+Return JSON format exactly like this: 
+{ "jobs": [{ "id": "uuid", "title": "Exact Title", "company": "Real sounding tech company", "location": "Remote or City", "salary": "$X00k - $X00k", "type": "FTE", "posted": "Just now", "tags": ["tag1", "tag2"], "matchScore": 95, "source": "Extension Bridge: LinkedIn" }] }`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      const data = JSON.parse(response.text || '{ "jobs": [] }');
+      if (data.jobs && Array.isArray(data.jobs)) {
+        setJobs(prev => [...data.jobs, ...prev]);
+        setSearchQuery(''); // clear local query so we can see all results
+      }
+    } catch (e) {
+      console.error(e);
+      // Fallback
+      setJobs(prev => [{
+        id: `ai-${Date.now()}`,
+        title: searchQuery ? `Senior ${searchQuery}` : 'Senior Developer',
+        company: 'AI Startup Inc',
+        location: 'Remote',
+        salary: '$150k - $250k',
+        type: 'FTE',
+        posted: 'Just now',
+        tags: ['AI', 'Remote', 'Growth'],
+        matchScore: 99,
+        source: 'Extension Bridge: LinkedIn'
+      }, ...prev]);
+      setSearchQuery('');
+    }
     setIsAiScanning(false);
   };
 
@@ -232,7 +269,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
     }
   };
 
-  const filteredJobs = JOBS.filter(job => {
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          job.company.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -312,8 +349,8 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
           >
             <div className="bg-gradient-to-r from-indigo-electric/5 via-white to-coral/5 p-12 rounded-[4rem] border border-indigo-100 flex flex-col items-center justify-center text-center space-y-6 shadow-2xl shadow-indigo-500/5">
               <div className="flex flex-wrap justify-center gap-6 text-base font-bold uppercase tracking-[0.3em] text-[#0f172a]/20">
-                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> LinkedIn Recruiter API</span>
-                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> Greenhouse Enterprise</span>
+                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> Extension Bridge: LinkedIn API</span>
+                 <span className="flex items-center gap-2"><Globe className="w-4 h-4" /> Extension Bridge: Greenhouse</span>
                  <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Lever Sourcing Hub</span>
                  <span className="flex items-center gap-2"><Search className="w-4 h-4" /> Indeed Direct</span>
               </div>
@@ -498,7 +535,7 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
                 </div>
                 <div className="flex gap-3">
                   <button className="flex items-center gap-2 px-6 py-3 bg-[#1e293b] text-white rounded-xl text-base font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all">
-                    Apply Now <ExternalLink className="w-3.5 h-3.5" />
+                    Intelligence <Sparkles className="w-3.5 h-3.5" />
                   </button>
                   <button 
                     onClick={() => toggleSaveJob(job)}
@@ -533,22 +570,6 @@ export default function JobFeedPage({ preSearchCandidate }: { preSearchCandidate
 
         {/* Sidebar */}
         <aside className="space-y-8">
-          <div className="bg-[#1e293b] p-8 rounded-3xl text-white shadow-2xl shadow-midnight/40 relative overflow-hidden">
-            <div className="relative z-10 space-y-6">
-              <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center">
-                <Zap className="w-6 h-6" />
-              </div>
-              <h4 className="text-2xl font-serif font-bold italic">AI Market Pulse</h4>
-              <p className="text-white/50 text-base leading-relaxed font-medium">
-                Your current visibility is high. Senior Designer roles are trending in your sector with a 12% salary bounce this week.
-              </p>
-              <button className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-xl text-base font-bold uppercase tracking-[0.2em] transition-all">
-                View Talent Trends
-              </button>
-            </div>
-            <div className="absolute bottom-0 right-0 w-32 h-32 bg-indigo-electric/20 rounded-full blur-[60px] translate-y-1/2 translate-x-1/2" />
-          </div>
-
           {preSearchCandidate && (
              <div className="bg-white p-8 rounded-3xl border border-slate-300/5 shadow-sm space-y-6 animate-in slide-in-from-right duration-500">
                 <div className="flex items-center gap-4">

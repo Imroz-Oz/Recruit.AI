@@ -345,6 +345,40 @@ export async function generateLinkedInOptimizations(targetRole: string, targetCo
   }
 }
 
+export async function identifyTopSkillsForRole(profileData: any, targetRole?: string) {
+  try {
+    const ai = getAI();
+    let prompt = `
+      You are an elite Talent Intelligence AI. Analyze this user's profile and identify their top 3 core skills.
+      Profile Data:
+      Name: ${profileData.name || profileData.displayName}
+      Title: ${profileData.title}
+      Bio: ${profileData.about || profileData.bio}
+    `;
+
+    if (targetRole) {
+      prompt += `\nTarget Role: ${targetRole}\nIdentify the top 3 skills specifically aligned with bridging to this Target Role.`;
+    } else {
+      prompt += `\nIdentify their top 3 strongest core skills overall.`;
+    }
+
+    prompt += `\nReturn ONLY a JSON array of 3 short skill strings: ["Skill 1", "Skill 2", "Skill 3"]`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    return JSON.parse(response.text || '[]');
+  } catch (error) {
+    console.error('Skill Identification Error:', error);
+    return [];
+  }
+}
+
 export async function validateResumeContent(text: string) {
   try {
     const ai = getAI();
@@ -563,13 +597,18 @@ export async function generatePersonalizedOutreach(targetProfile: any, myProfile
       
       CRITICAL: Use the Google Search tool to look up the Target Context URL and the Target person's recent work, company news, and background.
       
-      Generate a smart, fresh outreach message (Subject and Body) that references their specific work or context found via search.
-      Make it professional yet engaging, avoiding generic greetings.
+      Generate a smart, fresh outreach message (Subject, Body, LinkedIn Note, and Text Message) that references their specific work or context found via search.
+      Make it professional yet engaging, avoiding generic greetings. Generate a completely new message every time.
+      
+      For the Text Message:
+      It must be highly personalized, STRICTLY UNDER 350 CHARACTERS, and explicitly include the recruiter name: "${myProfile?.name || 'Recruiter'}" and number: "555-019-2041" at the end.
       
       Return a JSON containing:
       {
-        "subject": "String",
-        "body": "String (multi-line)",
+        "subject": "String (Email Subject)",
+        "body": "String (multi-line Email Body)",
+        "linkedInMessage": "String (A short, compelling text max 300 characters to send as a LinkedIn connection request note)",
+        "textMessage": "String (SMS text message < 350 chars with name and number)",
         "strategy": "String (1 short sentence explaining why this approach works based on the context found)"
       }
     `;

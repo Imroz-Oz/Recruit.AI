@@ -6,25 +6,30 @@
   --font-sans: "DM Sans", sans-serif;
   
   --color-cream: #F8FAFC;
-  --color-midnight: #0A0A0B;
-  --color-indigo-electric: #8B5CF6;
-  --color-coral: #06B6D4;
-  --color-warm-gray: #E2E8F0;
+  --color-midnight: #0F172A;
+  --color-indigo-electric: #8B5CF6; /* We can use Lavender here */
+  --color-lavender: #E0E7FF;
+  --color-soft-lavender: #C7D2FE;
+  --color-royal-blue: #818CF8;
+  --color-light-blue: #BAE6FD;
+  --color-coral: #38BDF8;
+  --color-gold: #FBBF24;
+  --color-soft-gold: #FDE68A;
+  --color-warm-gray: #F1F5F9;
   --color-mint: #2DD4BF;
-  --color-violet: #7C3AED;
+  --color-violet: #8B5CF6;
 }
 
 @layer base {
   body {
     @apply font-sans antialiased overflow-x-hidden;
-    background-color: var(--color-cream);
+    background-color: var(--color-warm-gray);
     color: var(--color-midnight);
     /* Updated gradients for new theme */
     background-image: 
-      radial-gradient(at 10% 10%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
-      radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.08) 0px, transparent 50%),
-      radial-gradient(at 50% 50%, rgba(124, 58, 237, 0.03) 0px, transparent 50%),
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+      radial-gradient(at 0% 0%, rgba(129, 140, 248, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.1) 0px, transparent 50%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
   }
   
   h1, h2, h3, h4, h5, h6 {

@@ -16,6 +16,7 @@ import {
   Target,
   BarChart3
 } from 'lucide-react';
+import { useAppStore } from '../store';
 
 interface DashboardPageProps {
   onSelectMode: (mode: SearchMode) => void;
@@ -25,6 +26,7 @@ interface DashboardPageProps {
 }
 
 export default function DashboardPage({ onSelectMode, onNavigatePage, appMode, user }: DashboardPageProps) {
+  const { showProfilePicture } = useAppStore();
   const isRecruiter = appMode === 'recruiter';
   const isPaid = user?.userPlan === 'pro' || user?.userPlan === 'enterprise';
   const userLevel = user?.userLevel || 'member';
@@ -133,10 +135,9 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode, u
 
         <div className="max-w-5xl mx-auto space-y-6 pt-10 border-t border-slate-300/5">
           <h4 className="text-center text-sm font-bold uppercase tracking-[0.4em] text-[#0f172a]/20">Executive Readiness Center</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: 'Readiness Engine', icon: ShieldCheck, page: 'interview-prep' as Page, color: 'hover:bg-violet/5' },
-              { label: 'Orbit Intelligence', icon: Globe, page: 'job-feed' as Page, color: 'hover:bg-coral/5' },
               { label: 'Community Hub', icon: Users, page: 'message-buddy' as Page, color: 'hover:bg-amber-500/5' },
               { label: 'Performance Analytics', icon: BarChart3, page: 'history' as Page, color: 'hover:bg-purple-50' }
             ].map((action, i) => (
@@ -200,8 +201,12 @@ export default function DashboardPage({ onSelectMode, onNavigatePage, appMode, u
               </span>
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map(i => (
-                   <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-warm-gray overflow-hidden">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=c${i}`} alt="avatar" />
+                   <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-warm-gray overflow-hidden flex items-center justify-center">
+                    {showProfilePicture ? (
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=c${i}`} alt="avatar" />
+                    ) : (
+                      <Users className="w-4 h-4 text-slate-400" />
+                    )}
                    </div>
                 ))}
               </div>

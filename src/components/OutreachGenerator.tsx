@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, MessageSquare, Send, Link as LinkIcon, Sparkles, Loader2, Copy, CheckCircle2, Target } from 'lucide-react';
+import { Mail, MessageSquare, Send, Link as LinkIcon, Sparkles, Loader2, Copy, CheckCircle2, Target, Smartphone } from 'lucide-react';
 import { generatePersonalizedOutreach } from '../services/aiService';
 
-export default function OutreachGenerator({ myProfile }: { myProfile: any }) {
-  const [targetName, setTargetName] = useState('');
-  const [targetTitle, setTargetTitle] = useState('');
-  const [targetUrl, setTargetUrl] = useState('');
+export default function OutreachGenerator({ myProfile, initialName = '', initialTitle = '', initialContext = '' }: { myProfile: any, initialName?: string, initialTitle?: string, initialContext?: string }) {
+  const [targetName, setTargetName] = useState(initialName);
+  const [targetTitle, setTargetTitle] = useState(initialTitle);
+  const [targetUrl, setTargetUrl] = useState(initialContext);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<{subject?: string, body?: string, strategy?: string} | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [result, setResult] = useState<{subject?: string, body?: string, linkedInMessage?: string, textMessage?: string, strategy?: string} | null>(null);
+  const [copied, setCopied] = useState<'body' | 'linkedin' | 'text' | null>(null);
 
   const handleGenerate = async () => {
     if (!targetUrl || !targetName) return;
@@ -29,11 +29,11 @@ export default function OutreachGenerator({ myProfile }: { myProfile: any }) {
     }
   };
 
-  const copyToClipboard = () => {
-    if (result && result.body) {
-      navigator.clipboard.writeText(result.body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const copyToClipboard = (text: string, type: 'body' | 'linkedin' | 'text') => {
+    if (text) {
+      navigator.clipboard.writeText(text);
+      setCopied(type);
+      setTimeout(() => setCopied(null), 2000);
     }
   };
 
@@ -126,16 +126,56 @@ export default function OutreachGenerator({ myProfile }: { myProfile: any }) {
                </div>
             )}
             
-            <div className="bg-[#1e293b]/2 rounded-3xl p-6 border border-slate-300/5 relative group">
-              {result.subject && <h4 className="text-lg font-bold text-[#0f172a] mb-4 pb-4 border-b border-slate-200">Subj: {result.subject}</h4>}
-              <p className="text-base text-[#0f172a]/80 leading-relaxed font-medium whitespace-pre-wrap">{result.body}</p>
-              
-              <button 
-                onClick={copyToClipboard}
-                className="absolute top-6 right-6 p-3 bg-white border border-slate-200 shadow-sm rounded-xl text-[#0f172a]/40 hover:text-indigo-electric transition-colors"
-              >
-                {copied ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#1e293b]/2 rounded-3xl p-6 border border-slate-300/5 relative group h-full">
+                <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-200">
+                  <Mail className="w-5 h-5 text-[#0f172a]/40" />
+                  <h4 className="text-lg font-bold text-[#0f172a]">Email Draft</h4>
+                </div>
+                {result.subject && <p className="text-base font-bold text-[#0f172a] mb-2">Subj: {result.subject}</p>}
+                <p className="text-sm text-[#0f172a]/80 leading-relaxed font-medium whitespace-pre-wrap">{result.body}</p>
+                
+                <button 
+                  onClick={() => copyToClipboard(result.body || '', 'body')}
+                  className="absolute top-6 right-6 p-3 bg-white border border-slate-200 shadow-sm rounded-xl text-[#0f172a]/40 hover:text-indigo-electric transition-colors"
+                >
+                  {copied === 'body' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+
+              {result.linkedInMessage && (
+                <div className="bg-[#1e293b]/2 rounded-3xl p-6 border border-slate-300/5 relative group h-full">
+                  <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-200">
+                    <MessageSquare className="w-5 h-5 text-[#0f172a]/40" />
+                    <h4 className="text-lg font-bold text-[#0f172a]">LinkedIn Note</h4>
+                  </div>
+                  <p className="text-sm text-[#0f172a]/80 leading-relaxed font-medium whitespace-pre-wrap">{result.linkedInMessage}</p>
+                  
+                  <button 
+                    onClick={() => copyToClipboard(result.linkedInMessage || '', 'linkedin')}
+                    className="absolute top-6 right-6 p-3 bg-white border border-slate-200 shadow-sm rounded-xl text-[#0f172a]/40 hover:text-indigo-electric transition-colors"
+                  >
+                    {copied === 'linkedin' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                  </button>
+                </div>
+              )}
+
+              {result.textMessage && (
+                <div className="bg-[#1e293b]/2 rounded-3xl p-6 border border-slate-300/5 relative group h-full">
+                  <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-200">
+                    <Smartphone className="w-5 h-5 text-[#0f172a]/40" />
+                    <h4 className="text-lg font-bold text-[#0f172a]">SMS / Text</h4>
+                  </div>
+                  <p className="text-sm text-[#0f172a]/80 leading-relaxed font-medium whitespace-pre-wrap">{result.textMessage}</p>
+                  
+                  <button 
+                    onClick={() => copyToClipboard(result.textMessage || '', 'text')}
+                    className="absolute top-6 right-6 p-3 bg-white border border-slate-200 shadow-sm rounded-xl text-[#0f172a]/40 hover:text-indigo-electric transition-colors"
+                  >
+                    {copied === 'text' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

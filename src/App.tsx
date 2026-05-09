@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
+import TopNav from './components/TopNav';
 import OnboardingWizard from './components/OnboardingWizard';
 import DashboardPage from './pages/DashboardPage';
 import IntelligenceHubPage from './pages/IntelligenceHubPage';
@@ -15,7 +15,7 @@ import AssistantPage from './pages/AssistantPage';
 import CandidatesPage from './pages/CandidatesPage';
 import NetworkPage from './pages/NetworkPage';
 import AuthPage from './pages/AuthPage';
-import ModeSelection from './components/ModeSelection';
+import NexusGate from './components/NexusGate';
 import JobFeedPage from './pages/JobFeedPage';
 import ResumeVaultPage from './pages/ResumeVaultPage';
 import InterviewPrepPage from './pages/InterviewPrepPage';
@@ -33,11 +33,14 @@ import SuperAdminPage from './pages/SuperAdminPage';
 import { Page, User, AppMode, SearchMode, IndustryType, EngagementType, TaxType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { Bot, Loader2, ArrowLeft } from 'lucide-react';
+import { Bot, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestoreErrorHandler';
+import { useAppStore } from './store';
+
+import { ThemeSettings } from './components/ThemeSettings';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -48,6 +51,8 @@ export default function App() {
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [selectedCandidateForMarket, setSelectedCandidateForMarket] = useState<any | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
+  const { backgroundImage } = useAppStore();
 
   useEffect(() => {
     if (user?.linkedInConnected !== undefined) {
@@ -466,11 +471,9 @@ export default function App() {
 
   if (!user.selectedMode) {
     return (
-      <ModeSelection 
+      <NexusGate 
         user={user} 
         onSelectMode={handleSelectAppMode} 
-        isLinkedInConnected={isLinkedInConnected}
-        onConnectLinkedIn={handleConnectLinkedIn}
       />
     );
   }
@@ -498,7 +501,7 @@ export default function App() {
       case 'resume-vault':
         return user.selectedMode === 'hunter' 
           ? <ResumeVaultPage /> 
-          : <TalentArchivePage onReverseMarket={handleReverseMarket} />;
+          : <TalentArchivePage onReverseMarket={handleReverseMarket} myProfile={user} />;
       case 'interview-prep':
         return <InterviewPrepPage />;
       case 'privacy':
@@ -545,15 +548,15 @@ export default function App() {
   return (
     <div 
       className={cn(
-        "flex min-h-screen selection:bg-violet/30 transition-colors duration-700 bg-cover bg-center bg-no-repeat bg-fixed relative",
-        !user.backgroundUrl && (user.userLevel === 'universal' ? 'bg-amber-50/50' : user.selectedMode === 'recruiter' ? 'bg-indigo-50/30' : 'bg-rose-50/20')
+        "flex flex-col min-h-screen selection:bg-violet/30 transition-colors duration-700 bg-cover bg-center bg-no-repeat bg-fixed relative",
+        !backgroundImage && (user.userLevel === 'universal' ? 'bg-amber-50/50' : user.selectedMode === 'recruiter' ? 'bg-indigo-50/30' : 'bg-rose-50/20')
       )}
       style={{
-        backgroundImage: user.backgroundUrl ? `url(${user.backgroundUrl})` : `url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')`, // A premium abstract cartoon-like/royal visual or superhero abstract style if default.
+        backgroundImage: `url(${backgroundImage})`
       }}
     >
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] pointer-events-none" /> {/* Overlay to make sure text is readable */}
-      <Sidebar 
+      <div className="absolute inset-0 bg-white/70 backdrop-blur-[4px] pointer-events-none" /> {/* Royal glassmorphism overlay */}
+      <TopNav 
         currentPage={currentPage} 
         setCurrentPage={navigateTo} 
         isLinkedInConnected={isLinkedInConnected}
@@ -576,8 +579,8 @@ export default function App() {
       />
       
       <main className={cn(
-        "flex-1 p-12 overflow-y-auto relative transition-all duration-500",
-        sidebarCollapsed ? "ml-20" : "ml-56"
+        "flex-1 p-6 md:p-12 overflow-y-auto relative transition-all duration-500",
+        ""
       )}>
         {/* Global Navigation Bar */}
         <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
@@ -619,6 +622,18 @@ export default function App() {
             role={user.selectedMode || 'hunter'} 
           />
         )}
+
+        <AnimatePresence>
+          {showThemeSettings && <ThemeSettings onClose={() => setShowThemeSettings(false)} />}
+        </AnimatePresence>
+
+        {/* Floating Settings Trigger */}
+        <button 
+          onClick={() => setShowThemeSettings(true)}
+          className="fixed bottom-10 left-10 w-12 h-12 bg-white/40 backdrop-blur-md rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 transition-all z-50 border border-white/60"
+        >
+          <Sparkles className="w-6 h-6 text-indigo-electric" />
+        </button>
 
         {/* Floating Copilot Trigger */}
         <button 

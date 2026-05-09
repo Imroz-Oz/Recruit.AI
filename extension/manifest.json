@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Recruit IQ AI Bridge",
+  "version": "1.0",
+  "description": "Bridges external professional networks like LinkedIn, Workday, and Greenhouse into your Recruit IQ ATS securely.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.workday.com/*",
+    "https://*.greenhouse.io/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.linkedin.com/*", "https://*.workday.com/*", "https://*.greenhouse.io/*"],
+      "js": ["contentScript.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

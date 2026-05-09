@@ -24,6 +24,9 @@ export interface AnalysisResponse {
 }
 
 export interface BooleanResponse {
+  preciseQuery?: string;
+  broadQuery?: string;
+  skillQuery?: string;
   query: string;
   suggestedTitles: string[];
   extractedTitle: string;
@@ -51,6 +54,8 @@ export interface CandidateExtraction {
   degree: string;
   skills: string[];
   summary: string;
+  jobType?: string;
+  clientDomain?: string;
 }
 
 export const extractProfileData = async (text: string): Promise<CandidateExtraction> => {
@@ -79,7 +84,9 @@ export const extractProfileData = async (text: string): Promise<CandidateExtract
         "location": "string",
         "degree": "string",
         "skills": ["skill1", "skill2"...],
-        "summary": "string (Short 1-2 sentence bio)"
+        "summary": "string (Short 1-2 sentence bio)",
+        "jobType": "string (e.g. IT, Non-IT, Healthcare, Engineering, Finance)",
+        "clientDomain": "string (e.g. Manufacturing, Semiconductor, Aerospace, Utility, Telecom, BFSI)"
       }
     `,
     config: {
@@ -110,17 +117,27 @@ export const generateBooleanFromJD = async (jd: string, previousInteractions: an
       ${learningContext}
 
       STRICT RULES for Boolean String Construction:
-      1. Use precise Boolean operators: AND, OR, NOT.
-      2. Cluster related skills using single parentheses: (SkillA OR SkillB OR SkillC).
-      3. AVOID redundant nested brackets. Never output ((...)).
-      4. Example Format: "Primary Role" AND (Skill1 OR Skill2) AND (Tool1 OR Tool2)
-      5. Do not include extra brackets at the start or end of the string unless necessary for logic.
+      1. Use precise Boolean operators: AND, OR, NOT. Cluster using parentheses. Do NOT nest brackets deeply like ((...)).
+      2. TIERED STRINGS: Generate three logical strings.
+         - "preciseQuery": A strict string including exact titles, mandatory skills, location/industry constraints.
+         - "broadQuery": A wider string that drops the title or specific education requirements, focusing on broad skills and variations. Add similar overlapping industries in the broadQuery (e.g., aerospace if automotive).
+         - "skillQuery": A string exclusively composed of skills, tools, and algorithms. NO titles.
+      3. CRITICAL SOURCING RULES:
+         - For Engineering Roles: Often we DO NOT put in titles. Focus primarily on stacks, tools, and algorithms.
+         - For Functional/Clerical (e.g. Assembler, Admin): Title CAN be added.
+         - For IT roles: Start with title, but the "broadQuery" should remove it to see more resumes.
+         - For Roles requiring Basic Skills (No degree needed): DO NOT use title. Focus only on skills/software.
+         - For Manager/TPM Logic: Focus on experience, tools, and budget size over exact titles.
+         - For Nursing (or universal professions): Focus on certificates and experience level, but DO NOT hardcode years of experience numbers.
+         - NEVER use degree (e.g. Bachelor, BS) as a boolean requirement unless strictly requested.
       
       Extract specifically:
       - A primary Job Title.
       - A Location (City/State).
       - A Country.
-      - A high-quality Boolean keyword string.
+      - preciseQuery: strict boolean string.
+      - broadQuery: loose boolean string dropping titles or secondary requirements.
+      - skillQuery: boolean string containing only skills, NO titles.
 
       Generate a "Role Blueprint" for the Recruiter:
       - software: Full tech stack and proprietary tools.
@@ -132,12 +149,15 @@ export const generateBooleanFromJD = async (jd: string, previousInteractions: an
 
       Return JSON only:
       {
-        "query": "string (The full boolean string)",
+        "preciseQuery": "string (The strict boolean string)",
+        "broadQuery": "string (The relaxed boolean string)",
+        "skillQuery": "string (The skill-heavy boolean string, no titles)",
+        "query": "string (The preciseQuery again, for backward compatibility)",
         "suggestedTitles": ["title1", "title2", ...],
         "extractedTitle": "string",
         "extractedLocation": "string",
         "extractedCountry": "string",
-        "extractedKeywords": "string (The core boolean keywords group)",
+        "extractedKeywords": "string (Core skills without titles)",
         "roleBlueprint": {
           "software": ["tool1", "stack1"...],
           "skillSet": ["skill1", "skill2"...],
@@ -376,4 +396,36 @@ export const analyzePersonalProfile = async (profileText: string, targetRole: st
   });
 
   return JSON.parse(response.text || "{}");
+};
+
+export const adaptResumeToJD = async (baseResume: string, jd: string): Promise<string> => {
+  const ai = getAI();
+  const prompt = `
+    You are an elite executive resume writer who specializes in bypassing enterprise ATS filters.
+    Your task is to take a Base Resume and adapt it to match a Target Job Description (JD).
+    
+    CRITICAL RULES:
+    1. DO NOT invent false experience. You must reframe their existing truth to match the JD's taxonomy.
+    2. Incorporate exact keywords from the JD where contextually accurate.
+    3. Remove fluff. Use high-impact action verbs.
+    4. Ensure standard layout. Return the adapted content in plain Markdown format, organized with clear sections (Professional Experience, Skills, Education).
+    
+    BASE RESUME:
+    ${baseResume}
+    
+    TARGET JD:
+    ${jd}
+    
+    Return the fully rewritten, hyper-optimized resume down below mapping to the JD perfectly. Do not output anything else.
+  `;
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text || "Failed to generate.";
+  } catch (err) {
+    console.error("Adaptation failed:", err);
+    return "Error adapting resume.";
+  }
 };

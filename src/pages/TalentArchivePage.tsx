@@ -32,12 +32,14 @@ import {
   generateCandidateIntelligence 
 } from '@/src/services/aiService';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestoreErrorHandler';
+import OutreachGenerator from '@/src/components/OutreachGenerator';
 
 interface TalentArchivePageProps {
   onReverseMarket: (candidate: any) => void;
+  myProfile?: any;
 }
 
-export default function TalentArchivePage({ onReverseMarket }: TalentArchivePageProps) {
+export default function TalentArchivePage({ onReverseMarket, myProfile }: TalentArchivePageProps) {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -48,6 +50,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
   const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showOutreachGenerator, setShowOutreachGenerator] = useState(false);
   const [xRayLocation, setXRayLocation] = useState({ country: '', state: '', zip: '' });
   const [showLocationError, setShowLocationError] = useState(false);
   
@@ -633,7 +636,10 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                          <TrendingUp className="w-3.5 h-3.5" /> Market IQ
                        </button>
                        <button 
-                        onClick={() => setPreviewCandidate(c)}
+                        onClick={() => {
+                          setPreviewCandidate(c);
+                          setShowOutreachGenerator(false);
+                        }}
                         className="p-2 bg-warm-gray rounded-xl hover:bg-neutral-200 transition-all"
                        >
                          <Eye className="w-5 h-5 text-[#0f172a]/40" />
@@ -776,6 +782,7 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                 onClick={() => {
                   setPreviewCandidate(null);
                   setAiSummary(null);
+                  setShowOutreachGenerator(false);
                 }}
                 className="absolute top-10 right-10 w-12 h-12 bg-warm-gray rounded-full flex items-center justify-center hover:bg-neutral-200 transition-all"
               >
@@ -852,10 +859,23 @@ export default function TalentArchivePage({ onReverseMarket }: TalentArchivePage
                  >
                    <TrendingUp className="w-4 h-4" /> Reverse Market Resume
                  </button>
-                 <button className="flex-1 py-5 bg-[#1e293b] text-white rounded-[2rem] font-bold text-base uppercase tracking-widest hover:bg-coral transition-all">
-                   Contact & Engage
+                 <button 
+                  onClick={() => setShowOutreachGenerator(!showOutreachGenerator)}
+                  className="flex-1 py-5 bg-[#1e293b] text-white rounded-[2rem] font-bold text-base uppercase tracking-widest hover:bg-coral transition-all"
+                 >
+                   {showOutreachGenerator ? 'Hide Contact Tools' : 'Contact & Engage'}
                  </button>
               </div>
+
+              {showOutreachGenerator && (
+                <div className="mt-8 animate-in slide-in-from-top-4 duration-500">
+                  <OutreachGenerator 
+                    myProfile={myProfile} 
+                    initialName={previewCandidate?.name} 
+                    initialTitle={previewCandidate?.title}
+                  />
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

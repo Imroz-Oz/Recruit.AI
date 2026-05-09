@@ -72,14 +72,30 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
   const [skillQuery, setSkillQuery] = useState('');
   const [additionalKeywords, setAdditionalKeywords] = useState('');
   const [degree, setDegree] = useState('Any Degree');
-  const [industry, setIndustry] = useState('');
   const [gradYear, setGradYear] = useState('');
   const [companies, setCompanies] = useState('');
   const [relocation, setRelocation] = useState(false);
   const [certifications, setCertifications] = useState('');
   const [visaStatus, setVisaStatus] = useState('any');
   const [remotePreference, setRemotePreference] = useState('any');
-  const [targetIndustry, setTargetIndustry] = useState<IndustryType | 'all'>('all');
+
+  const [clientDomains, setClientDomains] = useState<string[]>([]);
+  const [isDomainSelectOpen, setIsDomainSelectOpen] = useState(false);
+  const [jobType, setJobType] = useState('all');
+
+  const DOMAIN_OPTIONS = [
+    'Manufacturing', 'Semiconductor', 'Aerospace', 'Utility', 'Oil & Gas', 
+    'Power Generation', 'Telecom', 'BFSI', 'Banking Software', 'IT Services', 
+    'Healthcare', 'Life Sciences', 'Retail & E-commerce', 'Logistics & Supply Chain', 
+    'Automotive', 'FMCG', 'Media & Entertainment', 'Real Estate & Construction', 
+    'EdTech & Education', 'Government & Defense', 'Consulting & Professional Services'
+  ];
+
+  const JOB_TYPE_OPTIONS = [
+    'all', 'IT', 'Non-IT', 'Healthcare', 'Engineering', 'Finance', 'Operations', 
+    'Sales & Marketing', 'Human Resources', 'Legal', 'Administration', 'R&D', 
+    'Product Management', 'Design'
+  ];
 
   // Resume Matching State
   const [resumeMatchText, setResumeMatchText] = useState('');
@@ -191,7 +207,6 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
   const handleSuggestionSelect = (field: string, value: string) => {
     if (field === 'title') setTitle(value);
     else if (field === 'city') setGeoParams({ ...geoParams, city: value });
-    else if (field === 'industry') setIndustry(value);
     else if (field === 'companies') setCompanies(value);
     setActiveSuggestionField(null);
   };
@@ -382,10 +397,11 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
           const keywordMatchCount = queryTerms.filter(k => haystack.includes(k)).length;
           const keywordScore = queryTerms.length > 0 ? (keywordMatchCount / queryTerms.length) * 40 : 0;
 
-          // 3. Industry/Exp Match (0-30 points - Simulated)
-          const industryMatch = (targetIndustry === 'all' || (c.industry || '').toLowerCase() === targetIndustry.toLowerCase());
+          // 3. Domain/Type/Exp Match (0-30 points - Simulated systemization)
+          const domainMatch = clientDomains.length === 0 || clientDomains.some(d => (c.clientDomain || c.industry || '').toLowerCase().includes(d.toLowerCase()));
+          const typeMatch = jobType === 'all' || (c.jobType || '').toLowerCase() === jobType.toLowerCase();
           const expMatch = (c.experience >= minExp && c.experience <= maxExp);
-          const metaScore = (industryMatch ? 15 : 0) + (expMatch ? 15 : 0);
+          const metaScore = (domainMatch ? 10 : 0) + (typeMatch ? 10 : 0) + (expMatch ? 10 : 0);
           
           const totalScore = Math.round(titleScore + keywordScore + metaScore);
           return { ...c, score: Math.min(totalScore, 100) };
@@ -514,6 +530,8 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
           degree: profile.degree,
           resumeSnippet: profile.summary,
           keywords: profile.skills,
+          jobType: profile.jobType || '',
+          clientDomain: profile.clientDomain || '',
           createdAt: serverTimestamp()
         };
         
@@ -601,20 +619,52 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
 
         <section className="space-y-4">
           <h5 className="text-base font-black uppercase text-[#0f172a]/20 tracking-[0.2em] border-b border-slate-300/5 pb-2">Domain & Experience</h5>
-          <div className="space-y-2">
-            <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Industry Target</label>
-            <select 
-              value={targetIndustry} 
-              onChange={(e) => setTargetIndustry(e.target.value as any)} 
-              className="w-full p-4 bg-warm-gray text-sm font-bold rounded-2xl outline-none appearance-none cursor-pointer"
-            >
-              <option value="all">Every Industry</option>
-              <option value="it">Information Technology</option>
-              <option value="non-it">Non-IT / Professional</option>
-              <option value="engineering">Engineering</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="light-industrial">Light Industrial</option>
-            </select>
+          <div className="space-y-4">
+            <div className="space-y-2 relative">
+              <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Client Domain (Industry)</label>
+              
+              <div 
+                className="w-full p-4 bg-warm-gray text-sm font-bold rounded-2xl outline-none cursor-pointer flex justify-between items-center"
+                onClick={() => setIsDomainSelectOpen(!isDomainSelectOpen)}
+              >
+                <div className="flex-1 truncate">
+                  {clientDomains.length === 0 ? 'All Domains' : clientDomains.join(', ')}
+                </div>
+                <ChevronDown className={cn("w-4 h-4 text-[#0f172a]/50 transition-transform", isDomainSelectOpen && "rotate-180")} />
+              </div>
+              
+              {isDomainSelectOpen && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto p-2">
+                  {DOMAIN_OPTIONS.map(domain => (
+                    <label key={domain} className="flex flex-row items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer rounded-xl transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded accent-indigo-electric shrink-0"
+                        checked={clientDomains.includes(domain)}
+                        onChange={(e) => {
+                          if (e.target.checked) setClientDomains([...clientDomains, domain]);
+                          else setClientDomains(clientDomains.filter(d => d !== domain));
+                        }}
+                      />
+                      <span className="text-sm font-bold text-[#0f172a]">{domain}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 relative">
+              <label className="text-base font-bold uppercase tracking-widest text-[#0f172a]/30">Job Nature (Type)</label>
+              <select 
+                value={jobType} 
+                onChange={(e) => setJobType(e.target.value)} 
+                className="w-full p-4 bg-warm-gray text-sm font-bold rounded-2xl outline-none appearance-none cursor-pointer"
+              >
+                {JOB_TYPE_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt === 'all' ? 'Every Job Type' : opt}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -748,19 +798,65 @@ export default function CandidateSearch({ onMatchesFound, isLinkedInConnected, o
                </div>
             </div>
 
-            <div className="space-y-3">
-               <div className="flex justify-between items-center">
-                 <label className="text-base font-black uppercase text-[#0f172a]/30 tracking-widest">Extracted Keywords (Boolean)</label>
-                 <button onClick={() => navigator.clipboard.writeText(editableQuery)} className="flex items-center gap-2 text-base font-bold uppercase text-indigo-electric">
-                   <Copy className="w-3 h-3" /> Copy Keywords
-                 </button>
+            <div className="space-y-6">
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-base font-black uppercase text-[#0f172a]/30 tracking-widest">Precise Boolean String</label>
+                    <button onClick={() => navigator.clipboard.writeText(result?.preciseQuery || editableQuery)} className="flex items-center gap-2 text-base font-bold uppercase text-indigo-electric hover:text-emerald-600 transition-colors">
+                      <Copy className="w-3 h-3" /> Copy Precise
+                    </button>
+                  </div>
+                  <textarea 
+                    value={result?.preciseQuery || editableQuery}
+                    onChange={(e) => {
+                      if (result) {
+                        setResult({...result, preciseQuery: e.target.value});
+                      } else {
+                        handleQueryEdit(e.target.value);
+                      }
+                    }}
+                    className="w-full h-32 p-6 bg-warm-gray rounded-2xl text-base font-mono leading-relaxed outline-none border-2 border-transparent focus:border-slate-300/10"
+                  />
+                  <p className="text-sm text-[#0f172a]/40 italic">Strict matching including titles and exact keywords.</p>
                </div>
-               <textarea 
-                 value={editableQuery}
-                 onChange={(e) => handleQueryEdit(e.target.value)}
-                 className="w-full h-40 p-6 bg-warm-gray rounded-2xl text-base font-mono leading-relaxed outline-none border-2 border-transparent focus:border-slate-300/10"
-               />
-               <p className="text-base text-[#0f172a]/40 italic">Keywords and information extracted from your job description using AI. Check and edit if needed.</p>
+
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-base font-black uppercase text-[#0f172a]/30 tracking-widest">Broad / Alternative String</label>
+                    <button onClick={() => navigator.clipboard.writeText(result?.broadQuery || '')} className="flex items-center gap-2 text-base font-bold uppercase text-indigo-electric hover:text-emerald-600 transition-colors">
+                      <Copy className="w-3 h-3" /> Copy Broad
+                    </button>
+                  </div>
+                  <textarea 
+                    value={result?.broadQuery || ''}
+                    onChange={(e) => {
+                      if (result) {
+                        setResult({...result, broadQuery: e.target.value});
+                      }
+                    }}
+                    className="w-full h-32 p-6 bg-warm-gray rounded-2xl text-base font-mono leading-relaxed outline-none border-2 border-transparent focus:border-slate-300/10"
+                  />
+                  <p className="text-sm text-[#0f172a]/40 italic">Relaxed matching for more volume. Often drops title or specific education requirements.</p>
+               </div>
+
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-base font-black uppercase text-[#0f172a]/30 tracking-widest">Skill-Heavy String</label>
+                    <button onClick={() => navigator.clipboard.writeText(result?.skillQuery || '')} className="flex items-center gap-2 text-base font-bold uppercase text-indigo-electric hover:text-emerald-600 transition-colors">
+                      <Copy className="w-3 h-3" /> Copy Skills
+                    </button>
+                  </div>
+                  <textarea 
+                    value={result?.skillQuery || ''}
+                    onChange={(e) => {
+                      if (result) {
+                        setResult({...result, skillQuery: e.target.value});
+                      }
+                    }}
+                    className="w-full h-32 p-6 bg-warm-gray rounded-2xl text-base font-mono leading-relaxed outline-none border-2 border-transparent focus:border-slate-300/10"
+                  />
+                  <p className="text-sm text-[#0f172a]/40 italic">Exclusively focuses on skills, tools, and tech stacks. No titles.</p>
+               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6 pt-6">

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where, setDoc } from 'firebase/firestore';
-import { generateLinkedInOptimizations } from '@/src/services/aiService';
+import { generateLinkedInOptimizations, identifyTopSkillsForRole } from '@/src/services/aiService';
 
 import OutreachGenerator from '@/src/components/OutreachGenerator';
 
@@ -27,6 +27,7 @@ import OutreachGenerator from '@/src/components/OutreachGenerator';
 
 export default function LinkedInIntelligencePage({ isConnected, onConnect, myProfile }: { isConnected: boolean; onConnect: () => void; myProfile?: any }) {
   const [userProfile, setUserProfile] = useState<any>(myProfile || null);
+  const [inferredSkills, setInferredSkills] = useState<string[]>([]);
   const [targetGoal, setTargetGoal] = useState('');
   const [targetCompany, setTargetCompany] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -65,6 +66,24 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect, myPro
       fetchUser();
     }
   }, [myProfile]);
+
+  useEffect(() => {
+    if (isConnected && userProfile && !userProfile.title) {
+      handleSyncProfile();
+    }
+  }, [isConnected, userProfile?.title]);
+
+  useEffect(() => {
+    const inferSkills = async () => {
+      if (userProfile && (userProfile.about || userProfile.title)) {
+        const skills = await identifyTopSkillsForRole(userProfile, targetGoal);
+        if (skills && skills.length > 0) {
+          setInferredSkills(skills);
+        }
+      }
+    };
+    inferSkills();
+  }, [userProfile?.about, userProfile?.title, targetGoal]);
   
   const [isGlowingUp, setIsGlowingUp] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -292,7 +311,20 @@ export default function LinkedInIntelligencePage({ isConnected, onConnect, myPro
                 </button>
               </div>
 
-              {strategy?.topSkills && (
+              {inferredSkills && inferredSkills.length > 0 && (
+                 <div className="mt-6 w-full text-left">
+                   <p className="text-xs font-black text-[#0f172a]/40 uppercase tracking-[0.2em] mb-3 text-center">AI-Identified Top Skills</p>
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {inferredSkills.map((s, i) => (
+                       <span key={i} className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-700 rounded-lg text-xs font-bold uppercase tracking-wider border border-emerald-100">
+                         <Zap className="w-3 h-3 inline mr-1 text-amber-500" />{s}
+                       </span>
+                     ))}
+                   </div>
+                 </div>
+              )}
+
+              {strategy?.topSkills && inferredSkills.length === 0 && (
                  <div className="mt-6 w-full text-left">
                    <p className="text-xs font-black text-[#0f172a]/40 uppercase tracking-[0.2em] mb-3 text-center">AI-Identified Core Identity</p>
                    <div className="flex flex-wrap gap-2 justify-center">
